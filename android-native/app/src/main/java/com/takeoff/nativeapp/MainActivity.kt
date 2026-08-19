@@ -11,10 +11,12 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -83,17 +85,31 @@ private fun TakeoffNativeScreen(
                 onClear = onClear,
                 onUndo = onUndo
             )
-            Row(modifier = Modifier.fillMaxSize().padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box(modifier = Modifier.weight(1f).fillMaxSize().background(Color(0xFF06202D))) {
-                    TakeoffCanvas(state = state, onMotionEvent = onMotionEvent)
+            BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(8.dp)) {
+                val inspector = @Composable {
+                    TakeoffInspector(
+                        state = state,
+                        onKnownDistanceChange = onKnownDistanceChange,
+                        onScaleUnitChange = onScaleUnitChange,
+                        onApplyCalibration = onApplyCalibration,
+                        modifier = Modifier.fillMaxSize()
+                    )
                 }
-                TakeoffInspector(
-                    state = state,
-                    onKnownDistanceChange = onKnownDistanceChange,
-                    onScaleUnitChange = onScaleUnitChange,
-                    onApplyCalibration = onApplyCalibration,
-                    modifier = Modifier.fillMaxSize().weight(0.34f)
-                )
+                if (maxWidth < 720.dp) {
+                    Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Box(modifier = Modifier.weight(1f).fillMaxWidth().background(Color(0xFF06202D))) {
+                            TakeoffCanvas(state = state, onMotionEvent = onMotionEvent)
+                        }
+                        Box(modifier = Modifier.fillMaxWidth().height(230.dp)) { inspector() }
+                    }
+                } else {
+                    Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Box(modifier = Modifier.weight(1f).fillMaxSize().background(Color(0xFF06202D))) {
+                            TakeoffCanvas(state = state, onMotionEvent = onMotionEvent)
+                        }
+                        Box(modifier = Modifier.fillMaxSize().weight(0.34f)) { inspector() }
+                    }
+                }
             }
         }
     }

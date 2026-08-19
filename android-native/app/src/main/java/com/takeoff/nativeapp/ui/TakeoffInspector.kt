@@ -32,6 +32,12 @@ fun TakeoffInspector(
     Column(modifier = modifier.background(Color(0xFFF9FCFE)).padding(10.dp)) {
         Text("المفتش", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(6.dp))
+        Text("المشروع: ${state.project.name}", style = MaterialTheme.typography.bodySmall)
+        Text(
+            if (state.project.pages.isEmpty()) "الصفحات: لم تُضف صفحة بعد." else "الصفحات: ${state.project.pages.joinToString(" · ") { it.name }}",
+            style = MaterialTheme.typography.bodySmall,
+            maxLines = 2
+        )
         Text("الأداة: ${state.selectedTool.label}", style = MaterialTheme.typography.bodySmall)
         Text("مصدر الإدخال: ${state.inputSource}", style = MaterialTheme.typography.bodySmall)
         state.pdfLabel?.let { Text("المخطط: $it", style = MaterialTheme.typography.bodySmall, maxLines = 1) }

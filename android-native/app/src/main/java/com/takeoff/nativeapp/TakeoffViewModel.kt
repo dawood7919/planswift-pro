@@ -22,11 +22,16 @@ enum class NativeTool(val label: String) {
     PAN("تحريك"),
     CALIBRATE("معايرة"),
     COUNT("عد"),
+    SEGMENT("مقطع"),
     LINEAR("طول"),
     AREA("مساحة")
 }
 
 enum class MeasurementKind { COUNT, LINEAR, AREA }
+
+data class NativeProjectPage(val id: Long, val name: String)
+
+data class NativeProject(val id: Long, val name: String, val pages: List<NativeProjectPage>)
 
 data class NativeMeasurement(
     val id: Long,
@@ -49,6 +54,7 @@ data class TakeoffUiState(
     val scaleUnit: String = "m",
     val calibration: NativeCalibration? = null,
     val measurements: List<NativeMeasurement> = emptyList(),
+    val project: NativeProject = NativeProject(id = 1L, name = "مشروع محلي جديد", pages = emptyList()),
     val inputSource: String = "لم يبدأ إدخال",
     val isLoadingPlan: Boolean = false,
     val loadError: String? = null
@@ -62,6 +68,7 @@ class TakeoffViewModel : ViewModel() {
     private var lastPinchDistance: Float? = null
     private var isPinching = false
     private var nextMeasurementId = 1L
+    private var nextPageId = 1L
 
     fun selectTool(tool: NativeTool) {
         _state.update { it.copy(selectedTool = tool, activePoints = emptyList()) }
@@ -119,7 +126,14 @@ class TakeoffViewModel : ViewModel() {
                 } ?: error("تعذر قراءة ملف PDF المحدد.")
             }
             withContext(Dispatchers.Main) {
-                result.onSuccess { bitmap -> _state.update { it.copy(pdfBitmap = bitmap, isLoadingPlan = false) } }
+                result.onSuccess { bitmap -> _state.update { current ->
+                    val page = NativeProjectPage(nextPageId++, label)
+                    current.copy(
+                        pdfBitmap = bitmap,
+                        isLoadingPlan = false,
+                        project = current.project.copy(pages = current.project.pages + page)
+                    )
+                } }
                     .onFailure { error -> _state.update { it.copy(isLoadingPlan = false, loadError = error.message ?: "تعذر عرض المخطط.") } }
             }
         }
@@ -142,7 +156,7 @@ class TakeoffViewModel : ViewModel() {
                         NativeTool.PAN -> current.copy(inputSource = source)
                         NativeTool.CALIBRATE -> current.copy(inputSource = "المعايرة: المس النقطة الأولى ثم الثانية")
                         NativeTool.COUNT -> current.copy(inputSource = source)
-                        NativeTool.LINEAR, NativeTool.AREA -> current.copy(inputSource = source, activePoints = listOf(planPoint))
+                        NativeTool.SEGMENT, NativeTool.LINEAR, NativeTool.AREA -> current.copy(inputSource = source, activePoints = listOf(planPoint))
                     }
                 }
             }
@@ -166,7 +180,7 @@ class TakeoffViewModel : ViewModel() {
                     val previous = lastScreenPoint ?: screenPoint
                     _state.update { it.copy(pan = it.pan + (screenPoint - previous), inputSource = source) }
                     lastScreenPoint = screenPoint
-                } else if (activePointerId == pointerId && current.selectedTool != NativeTool.COUNT && current.selectedTool != NativeTool.CALIBRATE) {
+                } else if (activePointerId == pointerId && current.selectedTool != NativeTool.COUNT && current.selectedTool != NativeTool.CALIBRATE && current.selectedTool != NativeTool.SEGMENT) {
                     _state.update { it.copy(activePoints = it.activePoints.appendDistinct(planPoint)) }
                 }
             }
@@ -192,6 +206,10 @@ class TakeoffViewModel : ViewModel() {
                         }
                     }
                     NativeTool.COUNT -> commit(MeasurementKind.COUNT, listOf(planPoint), 1.0)
+                    NativeTool.SEGMENT -> {
+                        val points = current.activePoints.take(1) + planPoint
+                        if (points.size == 2) commit(MeasurementKind.LINEAR, points, MeasurementEngine.polylineLength(points))
+                    }
                     NativeTool.LINEAR -> {
                         val points = current.activePoints.appendDistinct(planPoint)
                         if (points.size >= 2) commit(MeasurementKind.LINEAR, points, MeasurementEngine.polylineLength(points))

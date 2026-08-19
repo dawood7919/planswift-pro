@@ -50,6 +50,7 @@ fun TakeoffCommandBar(
                         NativeTool.PAN -> Icons.Default.PanTool
                         NativeTool.CALIBRATE -> Icons.Default.Straighten
                         NativeTool.COUNT -> Icons.Default.TouchApp
+                        NativeTool.SEGMENT -> Icons.Default.Straighten
                         NativeTool.LINEAR -> Icons.Default.Straighten
                         NativeTool.AREA -> Icons.Default.Texture
                     }
