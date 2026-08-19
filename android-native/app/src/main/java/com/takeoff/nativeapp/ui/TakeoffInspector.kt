@@ -42,6 +42,7 @@ fun TakeoffInspector(
     onCloudEndpointChange: (String) -> Unit,
     onConnectCloud: (String, String) -> Unit,
     onRefreshCloudProjects: () -> Unit,
+    onImportCloudProject: (String) -> Unit,
     onClearCloudConnection: () -> Unit,
     onApplyCalibration: () -> Unit,
     onDeleteMeasurement: (Long) -> Unit,
@@ -100,7 +101,9 @@ fun TakeoffInspector(
         Text(state.cloudStatus, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 3.dp))
         state.cloudError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
         state.cloudProjects.take(8).forEach { project ->
-            Text("• ${project.name} · ${project.currency} · ${project.lengthUnit}", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 2.dp))
+            Button(onClick = { onImportCloudProject(project.id) }, enabled = !state.isRefreshingCloudProjects, modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
+                Text("استيراد: ${project.name} · ${project.currency}")
+            }
         }
         Spacer(Modifier.height(12.dp))
         Text("الطبقات", style = MaterialTheme.typography.titleSmall)

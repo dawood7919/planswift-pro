@@ -292,6 +292,47 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun importCloudProject(projectId: String) {
+        val connection = connectionStore.load()
+        if (connection == null || connection.isExpired()) {
+            _state.update { it.copy(cloudError = "اربط الجهاز برمز جديد قبل تنزيل المشروع السحابي.") }
+            return
+        }
+        if (_state.value.cloudProjects.none { it.id == projectId }) {
+            _state.update { it.copy(cloudError = "المشروع المطلوب غير موجود ضمن قائمة الحساب المملوك.") }
+            return
+        }
+        _state.update { it.copy(isRefreshingCloudProjects = true, cloudError = null, cloudStatus = "جارٍ تنزيل المشروع السحابي") }
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { NativeCloudProjectImporter.import(cloudApi.downloadProjectFile(connection, projectId)) }
+                .onSuccess { imported ->
+                    _state.update { state ->
+                        state.copy(
+                            project = imported.project,
+                            measurements = imported.measurements,
+                            calibration = imported.calibration,
+                            layers = listOf(NativeLayer(1L, "قياسات مستوردة", 0xFF59C3F5)),
+                            selectedLayerId = 1L,
+                            selectedTemplateId = null,
+                            selectedMeasurementIds = emptySet(),
+                            cutoutTargetId = null,
+                            annotations = emptyList(),
+                            activePageId = imported.activePageId,
+                            cloudStatus = "استُورد ${imported.measurements.size} عنصر قياس إلى النسخة المحلية",
+                            cloudError = null,
+                            isRefreshingCloudProjects = false
+                        )
+                    }
+                    nextMeasurementId = (imported.measurements.maxOfOrNull { it.id } ?: 0L) + 1L
+                    nextPageId = (imported.project.pages.maxOfOrNull { it.id } ?: 0L) + 1L
+                    persistWorkspace()
+                }
+                .onFailure { error ->
+                    _state.update { it.copy(cloudStatus = "تعذر الاستيراد؛ بقيت مساحة العمل المحلية كما هي", cloudError = error.message ?: "تعذر تنزيل ملف المشروع.", isRefreshingCloudProjects = false) }
+                }
+        }
+    }
+
     fun clearCloudConnection() {
         connectionStore.clear()
         _state.update { it.copy(cloudProjects = emptyList(), cloudStatus = "أُلغي ربط الجهاز", cloudError = null) }
