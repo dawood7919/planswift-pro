@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { appRouter } from "./routers";
+import { vi } from "vitest";
 import { COOKIE_NAME } from "../shared/const";
 import type { TrpcContext } from "./_core/context";
+import { sdk } from "./_core/sdk";
 
 type CookieCall = {
   name: string;
@@ -62,9 +64,12 @@ describe("auth.logout", () => {
 
   it("issues a bounded native session only for the authenticated caller", async () => {
     const { ctx } = createAuthContext();
+    const signer = vi.spyOn(sdk, "createSessionToken").mockResolvedValue("native-session-token");
     const result = await appRouter.createCaller(ctx).auth.createNativeSession();
 
-    expect(result.token).toMatch(/^eyJ/);
+    expect(result.token).toBe("native-session-token");
     expect(result.expiresInSeconds).toBe(7 * 24 * 60 * 60);
+    expect(signer).toHaveBeenCalledWith("sample-user", { expiresInMs: 7 * 24 * 60 * 60 * 1000, name: "Sample User" });
+    signer.mockRestore();
   });
 });
