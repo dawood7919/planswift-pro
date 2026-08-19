@@ -1,6 +1,7 @@
 package com.takeoff.nativeapp.measurement
 
 import kotlin.math.hypot
+import kotlin.math.sqrt
 
 data class PlanPoint(val x: Float, val y: Float)
 
@@ -29,4 +30,15 @@ object MeasurementEngine {
     fun calibratedLength(drawingLength: Double, factor: Double): Double = drawingLength * factor
 
     fun calibratedArea(drawingArea: Double, factor: Double): Double = drawingArea * factor * factor
+
+    fun roofArea(flatArea: Double, rise: Double, run: Double): Double {
+        require(flatArea.isFinite() && flatArea >= 0) { "المساحة الأفقية غير صالحة." }
+        require(rise.isFinite() && rise >= 0 && run.isFinite() && run > 0) { "نسبة الميل يجب أن تكون موجبة." }
+        return flatArea * sqrt(1.0 + (rise / run) * (rise / run))
+    }
+
+    fun volume(baseArea: Double, depth: Double): Double {
+        require(baseArea.isFinite() && baseArea >= 0 && depth.isFinite() && depth > 0) { "المساحة أو العمق غير صالح." }
+        return baseArea * depth
+    }
 }

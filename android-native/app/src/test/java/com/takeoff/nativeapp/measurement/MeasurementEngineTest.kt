@@ -29,4 +29,10 @@ class MeasurementEngineTest {
         assertEquals(null, MeasurementEngine.scaleFactor(0.0, 5.0))
         assertEquals(null, MeasurementEngine.scaleFactor(10.0, -5.0))
     }
+
+    @Test
+    fun `roof area and volume use deterministic physical factors`() {
+        assertEquals(11.1803398875, MeasurementEngine.roofArea(10.0, 1.0, 2.0), 0.00001)
+        assertEquals(30.0, MeasurementEngine.volume(20.0, 1.5), 0.00001)
+    }
 }

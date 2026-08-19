@@ -54,6 +54,8 @@ fun TakeoffCommandBar(
                         NativeTool.SEGMENT -> Icons.Default.Straighten
                         NativeTool.LINEAR -> Icons.Default.Straighten
                         NativeTool.AREA -> Icons.Default.Texture
+                        NativeTool.ROOF_AREA -> Icons.Default.Texture
+                        NativeTool.VOLUME -> Icons.Default.Texture
                     }
                     AssistChip(
                         onClick = { onToolSelected(tool) },

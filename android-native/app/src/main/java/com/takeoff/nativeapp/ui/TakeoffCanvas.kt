@@ -63,7 +63,7 @@ fun TakeoffCanvas(
                 when (measurement.kind) {
                     MeasurementKind.COUNT -> points.firstOrNull()?.let { drawCircle(Color(0xFFFFA26B), radius = 9f, center = it) }
                     MeasurementKind.LINEAR -> if (points.size > 1) for (index in 0 until points.lastIndex) drawLine(layerColor, points[index], points[index + 1], strokeWidth = 5f)
-                    MeasurementKind.AREA -> if (points.size > 2) {
+                    MeasurementKind.AREA, MeasurementKind.ROOF_AREA, MeasurementKind.VOLUME -> if (points.size > 2) {
                         val path = androidx.compose.ui.graphics.Path().apply { moveTo(points.first().x, points.first().y); points.drop(1).forEach { lineTo(it.x, it.y) }; close() }
                         drawPath(path, Color(0x5536E39D))
                         drawPath(path, layerColor, style = Stroke(width = 4f))

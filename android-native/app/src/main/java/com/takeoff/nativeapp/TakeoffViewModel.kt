@@ -28,10 +28,12 @@ enum class NativeTool(val label: String) {
     COUNT("عد"),
     SEGMENT("مقطع"),
     LINEAR("طول"),
-    AREA("مساحة")
+    AREA("مساحة"),
+    ROOF_AREA("سطح مائل"),
+    VOLUME("حجم")
 }
 
-enum class MeasurementKind { COUNT, LINEAR, AREA }
+enum class MeasurementKind { COUNT, LINEAR, AREA, ROOF_AREA, VOLUME }
 
 data class NativeProjectPage(val id: Long, val name: String, val sourceUri: String? = null)
 
@@ -60,6 +62,9 @@ data class TakeoffUiState(
     val calibrationPoints: List<PlanPoint> = emptyList(),
     val knownDistance: String = "1",
     val scaleUnit: String = "m",
+    val roofRise: String = "",
+    val roofRun: String = "",
+    val volumeDepth: String = "",
     val calibration: NativeCalibration? = null,
     val layers: List<NativeLayer> = listOf(NativeLayer(1L, "قياسات عامة", 0xFF59C3F5)),
     val selectedLayerId: Long = 1L,
@@ -115,6 +120,18 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
 
     fun setScaleUnit(unit: String) {
         _state.update { it.copy(scaleUnit = unit) }
+    }
+
+    fun setRoofRise(value: String) {
+        _state.update { it.copy(roofRise = value) }
+    }
+
+    fun setRoofRun(value: String) {
+        _state.update { it.copy(roofRun = value) }
+    }
+
+    fun setVolumeDepth(value: String) {
+        _state.update { it.copy(volumeDepth = value) }
     }
 
     fun addLayer(name: String) {
@@ -222,7 +239,7 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
                         NativeTool.PAN -> current.copy(inputSource = source)
                         NativeTool.CALIBRATE -> current.copy(inputSource = "المعايرة: المس النقطة الأولى ثم الثانية")
                         NativeTool.COUNT -> current.copy(inputSource = source)
-                        NativeTool.SEGMENT, NativeTool.LINEAR, NativeTool.AREA -> current.copy(inputSource = source, activePoints = listOf(planPoint))
+                        NativeTool.SEGMENT, NativeTool.LINEAR, NativeTool.AREA, NativeTool.ROOF_AREA, NativeTool.VOLUME -> current.copy(inputSource = source, activePoints = listOf(planPoint))
                     }
                 }
             }
@@ -283,6 +300,25 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
                     NativeTool.AREA -> {
                         val points = current.activePoints.appendDistinct(planPoint)
                         if (points.size >= 3) commit(MeasurementKind.AREA, points, MeasurementEngine.polygonArea(points))
+                    }
+                    NativeTool.ROOF_AREA -> {
+                        val points = current.activePoints.appendDistinct(planPoint)
+                        val rise = current.roofRise.toDoubleOrNull()
+                        val run = current.roofRun.toDoubleOrNull()
+                        if (points.size >= 3 && rise != null && run != null) {
+                            commit(MeasurementKind.ROOF_AREA, points, MeasurementEngine.roofArea(MeasurementEngine.polygonArea(points), rise, run))
+                        } else {
+                            _state.update { it.copy(inputSource = "أدخل rise وrun موجبين قبل قياس السطح المائل") }
+                        }
+                    }
+                    NativeTool.VOLUME -> {
+                        val points = current.activePoints.appendDistinct(planPoint)
+                        val depth = current.volumeDepth.toDoubleOrNull()
+                        if (points.size >= 3 && depth != null) {
+                            commit(MeasurementKind.VOLUME, points, MeasurementEngine.volume(MeasurementEngine.polygonArea(points), depth))
+                        } else {
+                            _state.update { it.copy(inputSource = "أدخل عمقاً موجباً قبل قياس الحجم") }
+                        }
                     }
                 }
                 activePointerId = null

@@ -32,6 +32,9 @@ fun TakeoffInspector(
     state: TakeoffUiState,
     onKnownDistanceChange: (String) -> Unit,
     onScaleUnitChange: (String) -> Unit,
+    onRoofRiseChange: (String) -> Unit,
+    onRoofRunChange: (String) -> Unit,
+    onVolumeDepthChange: (String) -> Unit,
     onApplyCalibration: () -> Unit,
     onAddLayer: (String) -> Unit,
     onSelectLayer: (Long) -> Unit,
@@ -117,6 +120,11 @@ fun TakeoffInspector(
             Button(onClick = onApplyCalibration, modifier = Modifier.fillMaxWidth().padding(top = 5.dp)) { Text("اعتماد المقياس") }
         }
         Spacer(Modifier.height(12.dp))
+        Text("قياسات متخصصة", style = MaterialTheme.typography.titleSmall)
+        OutlinedTextField(value = state.roofRise, onValueChange = onRoofRiseChange, label = { Text("Roof rise") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
+        OutlinedTextField(value = state.roofRun, onValueChange = onRoofRunChange, label = { Text("Roof run") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
+        OutlinedTextField(value = state.volumeDepth, onValueChange = onVolumeDepthChange, label = { Text("عمق الحجم بوحدة المقياس") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
+        Spacer(Modifier.height(12.dp))
         Text("القياسات", style = MaterialTheme.typography.titleSmall)
         LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             items(state.measurements, key = { it.id }) { measurement ->
@@ -125,12 +133,13 @@ fun TakeoffInspector(
                 val value = when (measurement.kind) {
                     MeasurementKind.COUNT -> "1 عنصر"
                     MeasurementKind.LINEAR -> if (scale != null && unit != null) "${"%.2f".format(measurement.value * scale)} $unit" else "${"%.2f".format(measurement.value)} وحدة رسم"
-                    MeasurementKind.AREA -> if (scale != null && unit != null) "${"%.2f".format(measurement.value * scale * scale)} $unit²" else "${"%.2f".format(measurement.value)} وحدة² رسم"
+                    MeasurementKind.AREA, MeasurementKind.ROOF_AREA -> if (scale != null && unit != null) "${"%.2f".format(measurement.value * scale * scale)} $unit²" else "${"%.2f".format(measurement.value)} وحدة² رسم"
+                    MeasurementKind.VOLUME -> if (scale != null && unit != null) "${"%.2f".format(measurement.value * scale * scale)} $unit³" else "${"%.2f".format(measurement.value)} وحدة³ رسم"
                 }
                 val scaledQuantity = when (measurement.kind) {
                     MeasurementKind.COUNT -> measurement.value
                     MeasurementKind.LINEAR -> measurement.value * (scale ?: 1.0)
-                    MeasurementKind.AREA -> measurement.value * (scale ?: 1.0) * (scale ?: 1.0)
+                    MeasurementKind.AREA, MeasurementKind.ROOF_AREA, MeasurementKind.VOLUME -> measurement.value * (scale ?: 1.0) * (scale ?: 1.0)
                 }
                 val estimatedCost = state.templates.firstOrNull { it.id == measurement.templateId }?.let { EstimationEngine.estimate(it, scaledQuantity).cost }
                 Card(modifier = Modifier.fillMaxWidth()) {

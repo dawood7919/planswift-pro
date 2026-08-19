@@ -33,7 +33,8 @@ object NativeReportEngine {
             unit = when (measurement.kind) {
                 MeasurementKind.COUNT -> "عنصر"
                 MeasurementKind.LINEAR -> calibration?.unit ?: "وحدة رسم"
-                MeasurementKind.AREA -> calibration?.unit?.plus("²") ?: "وحدة² رسم"
+                MeasurementKind.AREA, MeasurementKind.ROOF_AREA -> calibration?.unit?.plus("²") ?: "وحدة² رسم"
+                MeasurementKind.VOLUME -> calibration?.unit?.plus("³") ?: "وحدة³ رسم"
             },
             cost = template?.let { EstimationEngine.estimate(it, quantity).cost } ?: 0.0
         )
@@ -54,7 +55,7 @@ object NativeReportEngine {
         return when (measurement.kind) {
             MeasurementKind.COUNT -> measurement.value
             MeasurementKind.LINEAR -> measurement.value * factor
-            MeasurementKind.AREA -> measurement.value * factor * factor
+            MeasurementKind.AREA, MeasurementKind.ROOF_AREA, MeasurementKind.VOLUME -> measurement.value * factor * factor
         }
     }
 
