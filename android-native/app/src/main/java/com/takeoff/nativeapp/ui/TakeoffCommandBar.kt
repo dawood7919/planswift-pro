@@ -13,7 +13,7 @@ import androidx.compose.material.icons.filled.PanTool
 import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.Texture
 import androidx.compose.material.icons.filled.TouchApp
-import androidx.compose.material.icons.filled.Undo
+import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -62,7 +62,7 @@ fun TakeoffCommandBar(
                     )
                 }
                 if (hasMeasurements) {
-                    AssistChip(onClick = onUndo, label = { Text("تراجع") }, leadingIcon = { Icon(Icons.Default.Undo, null) })
+                    AssistChip(onClick = onUndo, label = { Text("تراجع") }, leadingIcon = { Icon(Icons.AutoMirrored.Filled.Undo, null) })
                     AssistChip(onClick = onClear, label = { Text("مسح") }, leadingIcon = { Icon(Icons.Default.DeleteSweep, null) })
                 }
             }

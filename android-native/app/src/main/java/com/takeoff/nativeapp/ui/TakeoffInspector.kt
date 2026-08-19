@@ -15,6 +15,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -27,8 +31,12 @@ fun TakeoffInspector(
     onKnownDistanceChange: (String) -> Unit,
     onScaleUnitChange: (String) -> Unit,
     onApplyCalibration: () -> Unit,
+    onAddLayer: (String) -> Unit,
+    onSelectLayer: (Long) -> Unit,
+    onToggleLayer: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var newLayerName by rememberSaveable { mutableStateOf("") }
     Column(modifier = modifier.background(Color(0xFFF9FCFE)).padding(10.dp)) {
         Text("المفتش", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(6.dp))
@@ -42,6 +50,28 @@ fun TakeoffInspector(
         Text("مصدر الإدخال: ${state.inputSource}", style = MaterialTheme.typography.bodySmall)
         state.pdfLabel?.let { Text("المخطط: $it", style = MaterialTheme.typography.bodySmall, maxLines = 1) }
         state.loadError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+        Spacer(Modifier.height(12.dp))
+        Text("الطبقات", style = MaterialTheme.typography.titleSmall)
+        OutlinedTextField(
+            value = newLayerName,
+            onValueChange = { newLayerName = it },
+            label = { Text("اسم طبقة جديدة") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+        )
+        Button(
+            onClick = { onAddLayer(newLayerName); newLayerName = "" },
+            enabled = newLayerName.trim().isNotEmpty(),
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+        ) { Text("إضافة طبقة") }
+        state.layers.forEach { layer ->
+            androidx.compose.foundation.layout.Row(modifier = Modifier.fillMaxWidth().padding(top = 3.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Button(onClick = { onSelectLayer(layer.id) }, modifier = Modifier.weight(1f), enabled = state.selectedLayerId != layer.id) {
+                    Text("${if (layer.visible) "●" else "○"} ${layer.name}")
+                }
+                Button(onClick = { onToggleLayer(layer.id) }) { Text(if (layer.visible) "إخفاء" else "إظهار") }
+            }
+        }
         Spacer(Modifier.height(12.dp))
         Text("المقياس", style = MaterialTheme.typography.titleSmall)
         Text(
@@ -77,7 +107,8 @@ fun TakeoffInspector(
                 }
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(8.dp)) {
-                        Text(measurement.kind.name, style = MaterialTheme.typography.labelSmall)
+                        val layerName = state.layers.firstOrNull { it.id == measurement.layerId }?.name ?: "طبقة محذوفة"
+                        Text("${measurement.kind.name} · $layerName", style = MaterialTheme.typography.labelSmall)
                         Text(value, style = MaterialTheme.typography.bodyMedium)
                     }
                 }

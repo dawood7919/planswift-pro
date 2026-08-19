@@ -1,12 +1,13 @@
 package com.takeoff.nativeapp
 
+import android.app.Application
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.view.MotionEvent
 import androidx.compose.ui.geometry.Offset
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.takeoff.nativeapp.measurement.MeasurementEngine
 import com.takeoff.nativeapp.measurement.PlanPoint
@@ -29,15 +30,18 @@ enum class NativeTool(val label: String) {
 
 enum class MeasurementKind { COUNT, LINEAR, AREA }
 
-data class NativeProjectPage(val id: Long, val name: String)
+data class NativeProjectPage(val id: Long, val name: String, val sourceUri: String? = null)
 
 data class NativeProject(val id: Long, val name: String, val pages: List<NativeProjectPage>)
+
+data class NativeLayer(val id: Long, val name: String, val color: Long, val visible: Boolean = true)
 
 data class NativeMeasurement(
     val id: Long,
     val kind: MeasurementKind,
     val points: List<PlanPoint>,
-    val value: Double
+    val value: Double,
+    val layerId: Long
 )
 
 data class NativeCalibration(val factor: Double, val unit: String)
@@ -53,6 +57,8 @@ data class TakeoffUiState(
     val knownDistance: String = "1",
     val scaleUnit: String = "m",
     val calibration: NativeCalibration? = null,
+    val layers: List<NativeLayer> = listOf(NativeLayer(1L, "قياسات عامة", 0xFF59C3F5)),
+    val selectedLayerId: Long = 1L,
     val measurements: List<NativeMeasurement> = emptyList(),
     val project: NativeProject = NativeProject(id = 1L, name = "مشروع محلي جديد", pages = emptyList()),
     val inputSource: String = "لم يبدأ إدخال",
@@ -60,15 +66,26 @@ data class TakeoffUiState(
     val loadError: String? = null
 )
 
-class TakeoffViewModel : ViewModel() {
+class TakeoffViewModel(application: Application) : AndroidViewModel(application) {
     private val _state = MutableStateFlow(TakeoffUiState())
     val state: StateFlow<TakeoffUiState> = _state.asStateFlow()
+    private val localStore = NativeProjectStore(application)
     private var lastScreenPoint: Offset? = null
     private var activePointerId: Int? = null
     private var lastPinchDistance: Float? = null
     private var isPinching = false
     private var nextMeasurementId = 1L
     private var nextPageId = 1L
+    private var nextLayerId = 2L
+
+    init {
+        localStore.load()?.let { stored ->
+            _state.value = _state.value.copy(project = stored.project, measurements = stored.measurements, calibration = stored.calibration, layers = stored.layers, selectedLayerId = stored.selectedLayerId)
+            nextMeasurementId = (stored.measurements.maxOfOrNull { it.id } ?: 0L) + 1L
+            nextPageId = (stored.project.pages.maxOfOrNull { it.id } ?: 0L) + 1L
+            nextLayerId = (stored.layers.maxOfOrNull { it.id } ?: 0L) + 1L
+        }
+    }
 
     fun selectTool(tool: NativeTool) {
         _state.update { it.copy(selectedTool = tool, activePoints = emptyList()) }
@@ -76,10 +93,12 @@ class TakeoffViewModel : ViewModel() {
 
     fun clearMeasurements() {
         _state.update { it.copy(measurements = emptyList(), activePoints = emptyList()) }
+        persistWorkspace()
     }
 
     fun undoLastMeasurement() {
         _state.update { current -> current.copy(measurements = current.measurements.dropLast(1)) }
+        persistWorkspace()
     }
 
     fun setKnownDistance(value: String) {
@@ -88,6 +107,24 @@ class TakeoffViewModel : ViewModel() {
 
     fun setScaleUnit(unit: String) {
         _state.update { it.copy(scaleUnit = unit) }
+    }
+
+    fun addLayer(name: String) {
+        val normalized = name.trim().take(80)
+        if (normalized.isEmpty()) return
+        val colors = longArrayOf(0xFF59C3F5, 0xFF36E39D, 0xFFFFA26B, 0xFFA78BFA, 0xFFF6CF62)
+        val layer = NativeLayer(nextLayerId++, normalized, colors[(nextLayerId % colors.size).toInt()])
+        _state.update { it.copy(layers = it.layers + layer, selectedLayerId = layer.id, inputSource = "اختيرت طبقة $normalized") }
+        persistWorkspace()
+    }
+
+    fun selectLayer(layerId: Long) {
+        _state.update { state -> if (state.layers.any { it.id == layerId }) state.copy(selectedLayerId = layerId) else state }
+    }
+
+    fun toggleLayer(layerId: Long) {
+        _state.update { state -> state.copy(layers = state.layers.map { if (it.id == layerId) it.copy(visible = !it.visible) else it }) }
+        persistWorkspace()
     }
 
     fun applyCalibration() {
@@ -106,6 +143,7 @@ class TakeoffViewModel : ViewModel() {
                 calibrationPoints = emptyList()
             )
         }
+        persistWorkspace()
     }
 
     fun openPdf(context: Context, uri: Uri, label: String) {
@@ -127,13 +165,14 @@ class TakeoffViewModel : ViewModel() {
             }
             withContext(Dispatchers.Main) {
                 result.onSuccess { bitmap -> _state.update { current ->
-                    val page = NativeProjectPage(nextPageId++, label)
+                    val page = current.project.pages.firstOrNull { it.sourceUri == uri.toString() }
+                        ?: NativeProjectPage(nextPageId++, label, uri.toString())
                     current.copy(
                         pdfBitmap = bitmap,
                         isLoadingPlan = false,
-                        project = current.project.copy(pages = current.project.pages + page)
+                        project = if (current.project.pages.any { it.id == page.id }) current.project else current.project.copy(pages = current.project.pages + page)
                     )
-                } }
+                }.also { persistWorkspace() } }
                     .onFailure { error -> _state.update { it.copy(isLoadingPlan = false, loadError = error.message ?: "تعذر عرض المخطط.") } }
             }
         }
@@ -234,8 +273,9 @@ class TakeoffViewModel : ViewModel() {
     }
 
     private fun commit(kind: MeasurementKind, points: List<PlanPoint>, value: Double) {
-        val measurement = NativeMeasurement(nextMeasurementId++, kind, points, value)
+        val measurement = NativeMeasurement(nextMeasurementId++, kind, points, value, _state.value.selectedLayerId)
         _state.update { it.copy(measurements = it.measurements + measurement) }
+        persistWorkspace()
     }
 
     private fun List<PlanPoint>.appendDistinct(point: PlanPoint): List<PlanPoint> {
@@ -246,5 +286,10 @@ class TakeoffViewModel : ViewModel() {
     private fun MotionEvent.pointerDistance(): Float {
         if (pointerCount < 2) return 0f
         return kotlin.math.hypot(getX(0) - getX(1), getY(0) - getY(1))
+    }
+
+    private fun persistWorkspace() {
+        val current = _state.value
+        localStore.save(StoredWorkspace(current.project, current.measurements, current.calibration, current.layers, current.selectedLayerId))
     }
 }

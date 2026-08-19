@@ -57,15 +57,16 @@ fun TakeoffCanvas(
                 dstOffset = IntOffset(frame.origin.x.toInt(), frame.origin.y.toInt()),
                 dstSize = IntSize((bitmap.width * frame.scale).toInt(), (bitmap.height * frame.scale).toInt())
             )
-            state.measurements.forEach { measurement ->
+            state.measurements.filter { measurement -> state.layers.firstOrNull { it.id == measurement.layerId }?.visible != false }.forEach { measurement ->
                 val points = measurement.points.map(frame::toScreen)
+                val layerColor = state.layers.firstOrNull { it.id == measurement.layerId }?.let { Color(it.color) } ?: Color(0xFF59C3F5)
                 when (measurement.kind) {
                     MeasurementKind.COUNT -> points.firstOrNull()?.let { drawCircle(Color(0xFFFFA26B), radius = 9f, center = it) }
-                    MeasurementKind.LINEAR -> if (points.size > 1) for (index in 0 until points.lastIndex) drawLine(Color(0xFF59C3F5), points[index], points[index + 1], strokeWidth = 5f)
+                    MeasurementKind.LINEAR -> if (points.size > 1) for (index in 0 until points.lastIndex) drawLine(layerColor, points[index], points[index + 1], strokeWidth = 5f)
                     MeasurementKind.AREA -> if (points.size > 2) {
                         val path = androidx.compose.ui.graphics.Path().apply { moveTo(points.first().x, points.first().y); points.drop(1).forEach { lineTo(it.x, it.y) }; close() }
                         drawPath(path, Color(0x5536E39D))
-                        drawPath(path, Color(0xFF36E39D), style = Stroke(width = 4f))
+                        drawPath(path, layerColor, style = Stroke(width = 4f))
                     }
                 }
             }

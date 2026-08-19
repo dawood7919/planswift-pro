@@ -55,6 +55,9 @@ class MainActivity : ComponentActivity() {
                     onKnownDistanceChange = viewModel::setKnownDistance,
                     onScaleUnitChange = viewModel::setScaleUnit,
                     onApplyCalibration = viewModel::applyCalibration,
+                    onAddLayer = viewModel::addLayer,
+                    onSelectLayer = viewModel::selectLayer,
+                    onToggleLayer = viewModel::toggleLayer,
                     onMotionEvent = viewModel::onMotionEvent
                 )
             }
@@ -72,6 +75,9 @@ private fun TakeoffNativeScreen(
     onKnownDistanceChange: (String) -> Unit,
     onScaleUnitChange: (String) -> Unit,
     onApplyCalibration: () -> Unit,
+    onAddLayer: (String) -> Unit,
+    onSelectLayer: (Long) -> Unit,
+    onToggleLayer: (Long) -> Unit,
     onMotionEvent: (android.view.MotionEvent, com.takeoff.nativeapp.measurement.PlanPoint, androidx.compose.ui.geometry.Offset) -> Unit
 ) {
     Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFFF3F7F9)) {
@@ -92,6 +98,9 @@ private fun TakeoffNativeScreen(
                         onKnownDistanceChange = onKnownDistanceChange,
                         onScaleUnitChange = onScaleUnitChange,
                         onApplyCalibration = onApplyCalibration,
+                        onAddLayer = onAddLayer,
+                        onSelectLayer = onSelectLayer,
+                        onToggleLayer = onToggleLayer,
                         modifier = Modifier.fillMaxSize()
                     )
                 }
