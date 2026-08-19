@@ -24,7 +24,8 @@ object NativeReportEngine {
         calibration: NativeCalibration?
     ): List<NativeReportRow> = measurements.map { measurement ->
         val template = templates.firstOrNull { it.id == measurement.templateId }
-        val quantity = physicalQuantity(measurement, calibration)
+        val baseQuantity = physicalQuantity(measurement, calibration)
+        val quantity = baseQuantity * measurement.multiplier
         NativeReportRow(
             kind = measurement.kind,
             layer = layers.firstOrNull { it.id == measurement.layerId }?.name ?: "طبقة غير معروفة",
@@ -36,7 +37,7 @@ object NativeReportEngine {
                 MeasurementKind.AREA, MeasurementKind.ROOF_AREA -> calibration?.unit?.plus("²") ?: "وحدة² رسم"
                 MeasurementKind.VOLUME -> calibration?.unit?.plus("³") ?: "وحدة³ رسم"
             },
-            cost = template?.let { EstimationEngine.estimate(it, quantity).cost } ?: 0.0
+            cost = template?.let { EstimationEngine.estimate(it, baseQuantity, measurement.multiplier).cost } ?: 0.0
         )
     }
 

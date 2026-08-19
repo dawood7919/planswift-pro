@@ -46,7 +46,8 @@ class NativeProjectStore(context: Context) {
                 points = measurement.getJSONArray("points").toList { point -> PlanPoint(point.getDouble("x").toFloat(), point.getDouble("y").toFloat()) },
                 value = measurement.getDouble("value"),
                 layerId = measurement.optLong("layerId", selectedLayerId),
-                templateId = measurement.optLong("templateId", -1L).takeIf { it >= 0 }
+                templateId = measurement.optLong("templateId", -1L).takeIf { it >= 0 },
+                multiplier = measurement.optDouble("multiplier", 1.0)
             )
         }
         val calibration = root.optJSONObject("calibration")?.let { NativeCalibration(it.getDouble("factor"), it.getString("unit")) }
@@ -70,6 +71,7 @@ class NativeProjectStore(context: Context) {
                         .put("value", measurement.value)
                         .put("layerId", measurement.layerId)
                         .put("templateId", measurement.templateId ?: -1L)
+                        .put("multiplier", measurement.multiplier)
                         .put("points", JSONArray().apply { measurement.points.forEach { point -> put(JSONObject().put("x", point.x).put("y", point.y)) } })
                     )
                 }

@@ -47,7 +47,8 @@ data class NativeMeasurement(
     val points: List<PlanPoint>,
     val value: Double,
     val layerId: Long,
-    val templateId: Long? = null
+    val templateId: Long? = null,
+    val multiplier: Double = 1.0
 )
 
 data class NativeCalibration(val factor: Double, val unit: String)
@@ -70,6 +71,7 @@ data class TakeoffUiState(
     val selectedLayerId: Long = 1L,
     val templates: List<NativeTemplate> = emptyList(),
     val selectedTemplateId: Long? = null,
+    val multiplierInput: String = "1",
     val measurements: List<NativeMeasurement> = emptyList(),
     val project: NativeProject = NativeProject(id = 1L, name = "مشروع محلي جديد", pages = emptyList()),
     val activePageId: Long? = null,
@@ -133,6 +135,10 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
 
     fun setVolumeDepth(value: String) {
         _state.update { it.copy(volumeDepth = value) }
+    }
+
+    fun setMultiplierInput(value: String) {
+        _state.update { it.copy(multiplierInput = value) }
     }
 
     fun addLayer(name: String) {
@@ -345,7 +351,12 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
 
     private fun commit(kind: MeasurementKind, points: List<PlanPoint>, value: Double) {
         val current = _state.value
-        val measurement = NativeMeasurement(nextMeasurementId++, kind, points, value, current.selectedLayerId, current.selectedTemplateId)
+        val multiplier = current.multiplierInput.toDoubleOrNull()
+        if (multiplier == null || !multiplier.isFinite() || multiplier <= 0) {
+            _state.update { it.copy(inputSource = "عامل التكرار يجب أن يكون موجباً") }
+            return
+        }
+        val measurement = NativeMeasurement(nextMeasurementId++, kind, points, value, current.selectedLayerId, current.selectedTemplateId, multiplier)
         _state.update { it.copy(measurements = it.measurements + measurement) }
         persistWorkspace()
     }

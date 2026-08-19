@@ -35,6 +35,7 @@ fun TakeoffInspector(
     onRoofRiseChange: (String) -> Unit,
     onRoofRunChange: (String) -> Unit,
     onVolumeDepthChange: (String) -> Unit,
+    onMultiplierChange: (String) -> Unit,
     onApplyCalibration: () -> Unit,
     onAddLayer: (String) -> Unit,
     onSelectLayer: (Long) -> Unit,
@@ -130,6 +131,7 @@ fun TakeoffInspector(
         OutlinedTextField(value = state.roofRise, onValueChange = onRoofRiseChange, label = { Text("Roof rise") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
         OutlinedTextField(value = state.roofRun, onValueChange = onRoofRunChange, label = { Text("Roof run") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
         OutlinedTextField(value = state.volumeDepth, onValueChange = onVolumeDepthChange, label = { Text("عمق الحجم بوحدة المقياس") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
+        OutlinedTextField(value = state.multiplierInput, onValueChange = onMultiplierChange, label = { Text("عامل التكرار للعناصر الجديدة") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
         Spacer(Modifier.height(12.dp))
         Text("القياسات", style = MaterialTheme.typography.titleSmall)
         LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -147,12 +149,12 @@ fun TakeoffInspector(
                     MeasurementKind.LINEAR -> measurement.value * (scale ?: 1.0)
                     MeasurementKind.AREA, MeasurementKind.ROOF_AREA, MeasurementKind.VOLUME -> measurement.value * (scale ?: 1.0) * (scale ?: 1.0)
                 }
-                val estimatedCost = state.templates.firstOrNull { it.id == measurement.templateId }?.let { EstimationEngine.estimate(it, scaledQuantity).cost }
+                val estimatedCost = state.templates.firstOrNull { it.id == measurement.templateId }?.let { EstimationEngine.estimate(it, scaledQuantity, measurement.multiplier).cost }
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(8.dp)) {
                         val layerName = state.layers.firstOrNull { it.id == measurement.layerId }?.name ?: "طبقة محذوفة"
                         Text("${measurement.kind.name} · $layerName", style = MaterialTheme.typography.labelSmall)
-                        Text(value, style = MaterialTheme.typography.bodyMedium)
+                        Text("$value × ${"%.2f".format(measurement.multiplier)}", style = MaterialTheme.typography.bodyMedium)
                         estimatedCost?.let { Text("التكلفة: ${"%.2f".format(it)}", style = MaterialTheme.typography.bodySmall) }
                     }
                 }
