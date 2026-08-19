@@ -37,6 +37,7 @@ fun TakeoffInspector(
     onRoofRunChange: (String) -> Unit,
     onVolumeDepthChange: (String) -> Unit,
     onMultiplierChange: (String) -> Unit,
+    onNoteTextChange: (String) -> Unit,
     onApplyCalibration: () -> Unit,
     onDeleteMeasurement: (Long) -> Unit,
     onDuplicateMeasurement: (Long) -> Unit,
@@ -159,6 +160,7 @@ fun TakeoffInspector(
         OutlinedTextField(value = state.roofRun, onValueChange = onRoofRunChange, label = { Text("Roof run") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
         OutlinedTextField(value = state.volumeDepth, onValueChange = onVolumeDepthChange, label = { Text("عمق الحجم بوحدة المقياس") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
         OutlinedTextField(value = state.multiplierInput, onValueChange = onMultiplierChange, label = { Text("عامل التكرار للعناصر الجديدة") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
+        OutlinedTextField(value = state.noteText, onValueChange = onNoteTextChange, label = { Text("نص الملاحظة الهندسية") }, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
         Spacer(Modifier.height(12.dp))
         Text("القياسات", style = MaterialTheme.typography.titleSmall)
         if (state.selectedMeasurementIds.isNotEmpty()) {

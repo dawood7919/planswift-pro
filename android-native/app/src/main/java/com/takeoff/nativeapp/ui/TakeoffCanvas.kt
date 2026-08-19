@@ -11,6 +11,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntOffset
@@ -69,6 +70,11 @@ fun TakeoffCanvas(
                         drawPath(path, layerColor, style = Stroke(width = 4f))
                     }
                 }
+            }
+            state.annotations.forEach { annotation ->
+                val point = frame.toScreen(annotation.point)
+                drawCircle(Color(annotation.color), radius = 7f, center = point)
+                drawContext.canvas.nativeCanvas.drawText(annotation.text, point.x + 10f, point.y - 10f, android.graphics.Paint().apply { color = android.graphics.Color.rgb(255, 224, 130); textSize = 28f; isAntiAlias = true })
             }
             val active = state.activePoints.map(frame::toScreen)
             if (active.size > 1) for (index in 0 until active.lastIndex) drawLine(Color(0xFFFFE082), active[index], active[index + 1], strokeWidth = 3f)

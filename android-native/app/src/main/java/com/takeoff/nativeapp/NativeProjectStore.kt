@@ -16,7 +16,8 @@ data class StoredWorkspace(
     val layers: List<NativeLayer>,
     val selectedLayerId: Long,
     val templates: List<NativeTemplate>,
-    val selectedTemplateId: Long?
+    val selectedTemplateId: Long?,
+    val annotations: List<NativeAnnotation>
 )
 
 class NativeProjectStore(context: Context) {
@@ -44,6 +45,7 @@ class NativeProjectStore(context: Context) {
             NativeTemplate(template.getLong("id"), TemplateKind.valueOf(template.getString("kind")), template.getString("name"), template.getString("unit"), template.getDouble("rate"), costItems)
         } ?: emptyList()
         val selectedTemplateId = root.optLong("selectedTemplateId", -1L).takeIf { id -> templates.any { it.id == id } }
+        val annotations = root.optJSONArray("annotations")?.toList { annotation -> NativeAnnotation(annotation.getLong("id"), annotation.getString("text"), PlanPoint(annotation.getDouble("x").toFloat(), annotation.getDouble("y").toFloat()), annotation.optLong("color", 0xFFFFE082)) } ?: emptyList()
         val measurements = root.getJSONArray("measurements").toList { measurement ->
             NativeMeasurement(
                 id = measurement.getLong("id"),
@@ -56,7 +58,7 @@ class NativeProjectStore(context: Context) {
             )
         }
         val calibration = root.optJSONObject("calibration")?.let { NativeCalibration(it.getDouble("factor"), it.getString("unit")) }
-        StoredWorkspace(project, measurements, calibration, layers, selectedLayerId, templates, selectedTemplateId)
+        StoredWorkspace(project, measurements, calibration, layers, selectedLayerId, templates, selectedTemplateId, annotations)
     }.getOrNull()
 
     fun save(workspace: StoredWorkspace) {
@@ -65,6 +67,7 @@ class NativeProjectStore(context: Context) {
             .put("projectName", workspace.project.name)
             .put("selectedLayerId", workspace.selectedLayerId)
             .put("selectedTemplateId", workspace.selectedTemplateId ?: -1L)
+            .put("annotations", JSONArray().apply { workspace.annotations.forEach { annotation -> put(JSONObject().put("id", annotation.id).put("text", annotation.text).put("x", annotation.point.x).put("y", annotation.point.y).put("color", annotation.color)) } })
             .put("pages", JSONArray().apply {
                 workspace.project.pages.forEach { page -> put(JSONObject().put("id", page.id).put("name", page.name).put("sourceUri", page.sourceUri ?: "")) }
             })

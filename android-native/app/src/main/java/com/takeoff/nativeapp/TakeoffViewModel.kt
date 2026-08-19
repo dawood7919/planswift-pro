@@ -32,7 +32,8 @@ enum class NativeTool(val label: String) {
     LINEAR("طول"),
     AREA("مساحة"),
     ROOF_AREA("سطح مائل"),
-    VOLUME("حجم")
+    VOLUME("حجم"),
+    NOTE("ملاحظة")
 }
 
 enum class MeasurementKind { COUNT, LINEAR, AREA, ROOF_AREA, VOLUME }
@@ -55,6 +56,8 @@ data class NativeMeasurement(
 
 data class NativeCalibration(val factor: Double, val unit: String)
 
+data class NativeAnnotation(val id: Long, val text: String, val point: PlanPoint, val color: Long = 0xFFFFE082)
+
 data class TakeoffUiState(
     val pdfBitmap: Bitmap? = null,
     val pdfLabel: String? = null,
@@ -76,6 +79,8 @@ data class TakeoffUiState(
     val multiplierInput: String = "1",
     val measurements: List<NativeMeasurement> = emptyList(),
     val selectedMeasurementIds: Set<Long> = emptySet(),
+    val annotations: List<NativeAnnotation> = emptyList(),
+    val noteText: String = "",
     val project: NativeProject = NativeProject(id = 1L, name = "مشروع محلي جديد", pages = emptyList()),
     val activePageId: Long? = null,
     val inputSource: String = "لم يبدأ إدخال",
@@ -96,15 +101,17 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
     private var nextLayerId = 2L
     private var nextTemplateId = 1L
     private var nextCostItemId = 1L
+    private var nextAnnotationId = 1L
 
     init {
         localStore.load()?.let { stored ->
-            _state.value = _state.value.copy(project = stored.project, measurements = stored.measurements, calibration = stored.calibration, layers = stored.layers, selectedLayerId = stored.selectedLayerId, templates = stored.templates, selectedTemplateId = stored.selectedTemplateId, activePageId = stored.project.pages.lastOrNull()?.id)
+            _state.value = _state.value.copy(project = stored.project, measurements = stored.measurements, calibration = stored.calibration, layers = stored.layers, selectedLayerId = stored.selectedLayerId, templates = stored.templates, selectedTemplateId = stored.selectedTemplateId, activePageId = stored.project.pages.lastOrNull()?.id, annotations = stored.annotations)
             nextMeasurementId = (stored.measurements.maxOfOrNull { it.id } ?: 0L) + 1L
             nextPageId = (stored.project.pages.maxOfOrNull { it.id } ?: 0L) + 1L
             nextLayerId = (stored.layers.maxOfOrNull { it.id } ?: 0L) + 1L
             nextTemplateId = (stored.templates.maxOfOrNull { it.id } ?: 0L) + 1L
             nextCostItemId = (stored.templates.flatMap { it.costItems }.maxOfOrNull { it.id } ?: 0L) + 1L
+            nextAnnotationId = (stored.annotations.maxOfOrNull { it.id } ?: 0L) + 1L
         }
     }
 
@@ -178,6 +185,10 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
 
     fun setMultiplierInput(value: String) {
         _state.update { it.copy(multiplierInput = value) }
+    }
+
+    fun setNoteText(value: String) {
+        _state.update { it.copy(noteText = value.take(400)) }
     }
 
     fun addLayer(name: String) {
@@ -306,6 +317,7 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
                         NativeTool.CALIBRATE -> current.copy(inputSource = "المعايرة: المس النقطة الأولى ثم الثانية")
                         NativeTool.COUNT -> current.copy(inputSource = source)
                         NativeTool.SEGMENT, NativeTool.LINEAR, NativeTool.AREA, NativeTool.ROOF_AREA, NativeTool.VOLUME -> current.copy(inputSource = source, activePoints = listOf(planPoint))
+                        NativeTool.NOTE -> current.copy(inputSource = source)
                     }
                 }
             }
@@ -386,6 +398,11 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
                             _state.update { it.copy(inputSource = "أدخل عمقاً موجباً قبل قياس الحجم") }
                         }
                     }
+                    NativeTool.NOTE -> {
+                        val text = current.noteText.trim()
+                        if (text.isEmpty()) _state.update { it.copy(inputSource = "اكتب نص الملاحظة أولاً") }
+                        else _state.update { it.copy(annotations = it.annotations + NativeAnnotation(nextAnnotationId++, text, planPoint), inputSource = "أضيفت ملاحظة هندسية") }.also { persistWorkspace() }
+                    }
                 }
                 activePointerId = null
                 lastScreenPoint = null
@@ -425,6 +442,6 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
 
     private fun persistWorkspace() {
         val current = _state.value
-        localStore.save(StoredWorkspace(current.project, current.measurements, current.calibration, current.layers, current.selectedLayerId, current.templates, current.selectedTemplateId))
+        localStore.save(StoredWorkspace(current.project, current.measurements, current.calibration, current.layers, current.selectedLayerId, current.templates, current.selectedTemplateId, current.annotations))
     }
 }
