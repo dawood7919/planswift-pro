@@ -51,7 +51,8 @@ data class NativeMeasurement(
     val value: Double,
     val layerId: Long,
     val templateId: Long? = null,
-    val multiplier: Double = 1.0
+    val multiplier: Double = 1.0,
+    val cutouts: List<List<PlanPoint>> = emptyList()
 )
 
 data class NativeCalibration(val factor: Double, val unit: String)
