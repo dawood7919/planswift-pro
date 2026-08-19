@@ -68,6 +68,14 @@ fun TakeoffCanvas(
                         val path = androidx.compose.ui.graphics.Path().apply { moveTo(points.first().x, points.first().y); points.drop(1).forEach { lineTo(it.x, it.y) }; close() }
                         drawPath(path, Color(0x5536E39D))
                         drawPath(path, layerColor, style = Stroke(width = 4f))
+                        measurement.cutouts.forEach { cutout ->
+                            val cutoutPoints = cutout.map(frame::toScreen)
+                            if (cutoutPoints.size > 2) {
+                                val cutoutPath = androidx.compose.ui.graphics.Path().apply { moveTo(cutoutPoints.first().x, cutoutPoints.first().y); cutoutPoints.drop(1).forEach { lineTo(it.x, it.y) }; close() }
+                                drawPath(cutoutPath, Color(0x6606202D))
+                                drawPath(cutoutPath, Color(0xFFFFE082), style = Stroke(width = 3f))
+                            }
+                        }
                     }
                 }
             }

@@ -33,6 +33,7 @@ enum class NativeTool(val label: String) {
     AREA("مساحة"),
     ROOF_AREA("سطح مائل"),
     VOLUME("حجم"),
+    CUTOUT("فتحة"),
     NOTE("ملاحظة")
 }
 
@@ -118,11 +119,20 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun selectTool(tool: NativeTool) {
-        _state.update { it.copy(selectedTool = tool, activePoints = emptyList()) }
+        _state.update { current ->
+            val hasEligibleCutoutTarget = current.cutoutTargetId?.let { targetId ->
+                current.measurements.any { it.id == targetId && it.kind in setOf(MeasurementKind.AREA, MeasurementKind.ROOF_AREA) }
+            } == true
+            if (tool == NativeTool.CUTOUT && !hasEligibleCutoutTarget) {
+                current.copy(activePoints = emptyList(), inputSource = "اختر مساحة أو سطحاً مائلاً كهدف للفتحات أولاً")
+            } else {
+                current.copy(selectedTool = tool, activePoints = emptyList())
+            }
+        }
     }
 
     fun clearMeasurements() {
-        _state.update { it.copy(measurements = emptyList(), activePoints = emptyList()) }
+        _state.update { it.copy(measurements = emptyList(), activePoints = emptyList(), cutoutTargetId = null) }
         persistWorkspace()
     }
 
@@ -132,13 +142,23 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun deleteMeasurement(measurementId: Long) {
-        _state.update { current -> current.copy(measurements = current.measurements.filterNot { it.id == measurementId }, selectedMeasurementIds = current.selectedMeasurementIds - measurementId) }
+        _state.update { current ->
+            current.copy(
+                measurements = current.measurements.filterNot { it.id == measurementId },
+                selectedMeasurementIds = current.selectedMeasurementIds - measurementId,
+                cutoutTargetId = current.cutoutTargetId?.takeIf { it != measurementId }
+            )
+        }
         persistWorkspace()
     }
 
     fun duplicateMeasurement(measurementId: Long) {
         val source = _state.value.measurements.firstOrNull { it.id == measurementId } ?: return
-        val copy = source.copy(id = nextMeasurementId++, points = source.points.map { point -> PlanPoint(point.x + 12f, point.y + 12f) })
+        val copy = source.copy(
+            id = nextMeasurementId++,
+            points = source.points.map { point -> PlanPoint(point.x + 12f, point.y + 12f) },
+            cutouts = source.cutouts.map { loop -> loop.map { point -> PlanPoint(point.x + 12f, point.y + 12f) } }
+        )
         _state.update { it.copy(measurements = it.measurements + copy, inputSource = "نُسخ عنصر القياس بإزاحة واضحة") }
         persistWorkspace()
     }
@@ -153,14 +173,26 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
     fun deleteSelectedMeasurements() {
         val selected = _state.value.selectedMeasurementIds
         if (selected.isEmpty()) return
-        _state.update { current -> current.copy(measurements = current.measurements.filterNot { it.id in selected }, selectedMeasurementIds = emptySet()) }
+        _state.update { current ->
+            current.copy(
+                measurements = current.measurements.filterNot { it.id in selected },
+                selectedMeasurementIds = emptySet(),
+                cutoutTargetId = current.cutoutTargetId?.takeIf { it !in selected }
+            )
+        }
         persistWorkspace()
     }
 
     fun duplicateSelectedMeasurements() {
         val selected = _state.value.selectedMeasurementIds
         if (selected.isEmpty()) return
-        val copies = _state.value.measurements.filter { it.id in selected }.map { source -> source.copy(id = nextMeasurementId++, points = source.points.map { point -> PlanPoint(point.x + 12f, point.y + 12f) }) }
+        val copies = _state.value.measurements.filter { it.id in selected }.map { source ->
+            source.copy(
+                id = nextMeasurementId++,
+                points = source.points.map { point -> PlanPoint(point.x + 12f, point.y + 12f) },
+                cutouts = source.cutouts.map { loop -> loop.map { point -> PlanPoint(point.x + 12f, point.y + 12f) } }
+            )
+        }
         _state.update { it.copy(measurements = it.measurements + copies, inputSource = "نُسخت مجموعة القياسات بإزاحة واضحة") }
         persistWorkspace()
     }
@@ -325,7 +357,7 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
                         NativeTool.PAN -> current.copy(inputSource = source)
                         NativeTool.CALIBRATE -> current.copy(inputSource = "المعايرة: المس النقطة الأولى ثم الثانية")
                         NativeTool.COUNT -> current.copy(inputSource = source)
-                        NativeTool.SEGMENT, NativeTool.LINEAR, NativeTool.AREA, NativeTool.ROOF_AREA, NativeTool.VOLUME -> current.copy(inputSource = source, activePoints = listOf(planPoint))
+                        NativeTool.SEGMENT, NativeTool.LINEAR, NativeTool.AREA, NativeTool.ROOF_AREA, NativeTool.VOLUME, NativeTool.CUTOUT -> current.copy(inputSource = source, activePoints = listOf(planPoint))
                         NativeTool.NOTE -> current.copy(inputSource = source)
                     }
                 }
@@ -407,6 +439,17 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
                             _state.update { it.copy(inputSource = "أدخل عمقاً موجباً قبل قياس الحجم") }
                         }
                     }
+                    NativeTool.CUTOUT -> {
+                        val targetId = current.cutoutTargetId
+                        val points = current.activePoints.appendDistinct(planPoint)
+                        if (targetId == null) {
+                            _state.update { it.copy(inputSource = "اختر مساحة هدف للفتحات من المفتش أولاً") }
+                        } else if (points.size < 3) {
+                            _state.update { it.copy(inputSource = "ارسم ثلاث نقاط على الأقل لإنشاء فتحة") }
+                        } else {
+                            commitCutout(targetId, points)
+                        }
+                    }
                     NativeTool.NOTE -> {
                         val text = current.noteText.trim()
                         if (text.isEmpty()) _state.update { it.copy(inputSource = "اكتب نص الملاحظة أولاً") }
@@ -427,6 +470,42 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    private fun commitCutout(targetId: Long, rawPoints: List<PlanPoint>) {
+        val current = _state.value
+        val target = current.measurements.firstOrNull { it.id == targetId }
+        if (target == null || target.kind !in setOf(MeasurementKind.AREA, MeasurementKind.ROOF_AREA)) {
+            _state.update { it.copy(cutoutTargetId = null, inputSource = "تعذر العثور على مساحة هدف صالحة للفتحة") }
+            return
+        }
+        val points = if (rawPoints.size > 3 && rawPoints.first().isNear(rawPoints.last())) rawPoints.dropLast(1) else rawPoints
+        if (!MeasurementEngine.canAddCutout(target.points, target.cutouts, points)) {
+            _state.update { it.copy(inputSource = "الفتحة يجب أن تكون حلقة بسيطة داخل الهدف وألا تتقاطع مع فتحة أخرى") }
+            return
+        }
+        val cutouts = target.cutouts + listOf(points)
+        val netFlatArea = runCatching { MeasurementEngine.areaWithCutouts(target.points, cutouts) }.getOrElse {
+            _state.update { state -> state.copy(inputSource = it.message ?: "تعذر حساب مساحة الفتحة") }
+            return
+        }
+        val netValue = when (target.kind) {
+            MeasurementKind.AREA -> netFlatArea
+            MeasurementKind.ROOF_AREA -> MeasurementEngine.adjustAreaValueProportionally(
+                originalOuterArea = MeasurementEngine.polygonArea(target.points),
+                originalMeasuredValue = target.value,
+                adjustedFlatArea = netFlatArea
+            )
+            else -> return
+        }
+        val updated = target.copy(cutouts = cutouts, value = netValue)
+        _state.update { state ->
+            state.copy(
+                measurements = state.measurements.map { if (it.id == target.id) updated else it },
+                inputSource = "أضيفت فتحة ${cutouts.size} وأعيد حساب المساحة الصافية"
+            )
+        }
+        persistWorkspace()
+    }
+
     private fun commit(kind: MeasurementKind, points: List<PlanPoint>, value: Double) {
         val current = _state.value
         val multiplier = current.multiplierInput.toDoubleOrNull()
@@ -443,6 +522,8 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
         val last = lastOrNull() ?: return listOf(point)
         return if (kotlin.math.abs(last.x - point.x) < 1f && kotlin.math.abs(last.y - point.y) < 1f) this else this + point
     }
+
+    private fun PlanPoint.isNear(other: PlanPoint): Boolean = kotlin.math.abs(x - other.x) < 1f && kotlin.math.abs(y - other.y) < 1f
 
     private fun MotionEvent.pointerDistance(): Float {
         if (pointerCount < 2) return 0f

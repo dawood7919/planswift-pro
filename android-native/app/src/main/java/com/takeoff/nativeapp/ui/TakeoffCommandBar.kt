@@ -56,6 +56,7 @@ fun TakeoffCommandBar(
                         NativeTool.AREA -> Icons.Default.Texture
                         NativeTool.ROOF_AREA -> Icons.Default.Texture
                         NativeTool.VOLUME -> Icons.Default.Texture
+                        NativeTool.CUTOUT -> Icons.Default.Texture
                         NativeTool.NOTE -> Icons.Default.TouchApp
                     }
                     AssistChip(

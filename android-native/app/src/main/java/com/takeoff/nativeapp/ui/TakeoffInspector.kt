@@ -164,6 +164,12 @@ fun TakeoffInspector(
         OutlinedTextField(value = state.noteText, onValueChange = onNoteTextChange, label = { Text("نص الملاحظة الهندسية") }, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
         Spacer(Modifier.height(12.dp))
         Text("القياسات", style = MaterialTheme.typography.titleSmall)
+        val cutoutTarget = state.cutoutTargetId?.let { targetId -> state.measurements.firstOrNull { it.id == targetId } }
+        Text(
+            cutoutTarget?.let { "هدف الفتحات: ${it.kind.name} · ${it.cutouts.size} فتحة. اختر أداة «فتحة» وارسم الحلقة." }
+                ?: "الفتحات: اختر «فتحات» بجانب مساحة أو سطح مائل، ثم اختر أداة «فتحة» لرسم الحلقة.",
+            style = MaterialTheme.typography.bodySmall
+        )
         if (state.selectedMeasurementIds.isNotEmpty()) {
             Text("محدد: ${state.selectedMeasurementIds.size}", style = MaterialTheme.typography.bodySmall)
             androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 4.dp)) {
@@ -192,6 +198,7 @@ fun TakeoffInspector(
                         val layerName = state.layers.firstOrNull { it.id == measurement.layerId }?.name ?: "طبقة محذوفة"
                         Text("${measurement.kind.name} · $layerName", style = MaterialTheme.typography.labelSmall)
                         Text("$value × ${"%.2f".format(measurement.multiplier)}", style = MaterialTheme.typography.bodyMedium)
+                        if (measurement.cutouts.isNotEmpty()) Text("فتحات: ${measurement.cutouts.size}", style = MaterialTheme.typography.bodySmall)
                         estimatedCost?.let { Text("التكلفة: ${"%.2f".format(it)}", style = MaterialTheme.typography.bodySmall) }
                         androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 4.dp)) {
                             Button(onClick = { onToggleMeasurementSelection(measurement.id) }) { Text(if (measurement.id in state.selectedMeasurementIds) "إلغاء التحديد" else "تحديد") }

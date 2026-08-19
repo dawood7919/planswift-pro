@@ -1,6 +1,8 @@
 package com.takeoff.nativeapp.measurement
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MeasurementEngineTest {
@@ -41,5 +43,29 @@ class MeasurementEngineTest {
         val outer = listOf(PlanPoint(0f, 0f), PlanPoint(10f, 0f), PlanPoint(10f, 10f), PlanPoint(0f, 10f))
         val cutout = listOf(PlanPoint(2f, 2f), PlanPoint(4f, 2f), PlanPoint(4f, 4f), PlanPoint(2f, 4f))
         assertEquals(96.0, MeasurementEngine.areaWithCutouts(outer, listOf(cutout)), 0.00001)
+    }
+
+    @Test
+    fun `cutout validation accepts only simple inner loops without overlap`() {
+        val outer = listOf(PlanPoint(0f, 0f), PlanPoint(10f, 0f), PlanPoint(10f, 10f), PlanPoint(0f, 10f))
+        val existing = listOf(PlanPoint(2f, 2f), PlanPoint(4f, 2f), PlanPoint(4f, 4f), PlanPoint(2f, 4f))
+        val valid = listOf(PlanPoint(6f, 6f), PlanPoint(8f, 6f), PlanPoint(8f, 8f), PlanPoint(6f, 8f))
+        val outside = listOf(PlanPoint(9f, 9f), PlanPoint(11f, 9f), PlanPoint(11f, 11f), PlanPoint(9f, 11f))
+        val overlapping = listOf(PlanPoint(3f, 3f), PlanPoint(5f, 3f), PlanPoint(5f, 5f), PlanPoint(3f, 5f))
+
+        assertTrue(MeasurementEngine.canAddCutout(outer, listOf(existing), valid))
+        assertFalse(MeasurementEngine.canAddCutout(outer, listOf(existing), outside))
+        assertFalse(MeasurementEngine.canAddCutout(outer, listOf(existing), overlapping))
+    }
+
+    @Test
+    fun `cutouts proportionally update sloped area value`() {
+        val slopedOuter = MeasurementEngine.roofArea(flatArea = 100.0, rise = 1.0, run = 2.0)
+        val netValue = MeasurementEngine.adjustAreaValueProportionally(
+            originalOuterArea = 100.0,
+            originalMeasuredValue = slopedOuter,
+            adjustedFlatArea = 96.0
+        )
+        assertEquals(MeasurementEngine.roofArea(flatArea = 96.0, rise = 1.0, run = 2.0), netValue, 0.00001)
     }
 }
