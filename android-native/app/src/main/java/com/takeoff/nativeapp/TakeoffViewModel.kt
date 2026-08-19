@@ -117,6 +117,18 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
         persistWorkspace()
     }
 
+    fun deleteMeasurement(measurementId: Long) {
+        _state.update { current -> current.copy(measurements = current.measurements.filterNot { it.id == measurementId }) }
+        persistWorkspace()
+    }
+
+    fun duplicateMeasurement(measurementId: Long) {
+        val source = _state.value.measurements.firstOrNull { it.id == measurementId } ?: return
+        val copy = source.copy(id = nextMeasurementId++, points = source.points.map { point -> PlanPoint(point.x + 12f, point.y + 12f) })
+        _state.update { it.copy(measurements = it.measurements + copy, inputSource = "نُسخ عنصر القياس بإزاحة واضحة") }
+        persistWorkspace()
+    }
+
     fun setKnownDistance(value: String) {
         _state.update { it.copy(knownDistance = value) }
     }

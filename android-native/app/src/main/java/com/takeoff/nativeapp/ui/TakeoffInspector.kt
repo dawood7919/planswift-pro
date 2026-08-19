@@ -37,6 +37,8 @@ fun TakeoffInspector(
     onVolumeDepthChange: (String) -> Unit,
     onMultiplierChange: (String) -> Unit,
     onApplyCalibration: () -> Unit,
+    onDeleteMeasurement: (Long) -> Unit,
+    onDuplicateMeasurement: (Long) -> Unit,
     onAddLayer: (String) -> Unit,
     onSelectLayer: (Long) -> Unit,
     onToggleLayer: (Long) -> Unit,
@@ -156,6 +158,10 @@ fun TakeoffInspector(
                         Text("${measurement.kind.name} · $layerName", style = MaterialTheme.typography.labelSmall)
                         Text("$value × ${"%.2f".format(measurement.multiplier)}", style = MaterialTheme.typography.bodyMedium)
                         estimatedCost?.let { Text("التكلفة: ${"%.2f".format(it)}", style = MaterialTheme.typography.bodySmall) }
+                        androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 4.dp)) {
+                            Button(onClick = { onDuplicateMeasurement(measurement.id) }) { Text("نسخ") }
+                            Button(onClick = { onDeleteMeasurement(measurement.id) }) { Text("حذف") }
+                        }
                     }
                 }
             }
