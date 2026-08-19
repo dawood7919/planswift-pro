@@ -2,6 +2,7 @@ import { COOKIE_NAME } from "@shared/const";
 import { z } from "zod";
 import * as db from "./db";
 import { getSessionCookieOptions } from "./_core/cookies";
+import { sdk } from "./_core/sdk";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { evaluateFormula } from "../shared/takeoff-core/formula";
@@ -25,6 +26,10 @@ export const appRouter = router({
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
+    createNativeSession: protectedProcedure.mutation(async ({ ctx }) => {
+      const token = await sdk.createSessionToken(ctx.user.openId, { expiresInMs: 7 * 24 * 60 * 60 * 1000, name: ctx.user.name ?? "" });
+      return { token, expiresInSeconds: 7 * 24 * 60 * 60 };
+    }),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });

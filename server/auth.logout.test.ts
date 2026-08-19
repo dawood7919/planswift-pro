@@ -59,4 +59,12 @@ describe("auth.logout", () => {
       path: "/",
     });
   });
+
+  it("issues a bounded native session only for the authenticated caller", async () => {
+    const { ctx } = createAuthContext();
+    const result = await appRouter.createCaller(ctx).auth.createNativeSession();
+
+    expect(result.token).toMatch(/^eyJ/);
+    expect(result.expiresInSeconds).toBe(7 * 24 * 60 * 60);
+  });
 });
