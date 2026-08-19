@@ -41,6 +41,7 @@ fun TakeoffInspector(
     onToggleLayer: (Long) -> Unit,
     onAddTemplate: (String, String, String, TemplateKind) -> Unit,
     onSelectTemplate: (Long?) -> Unit,
+    onSelectPage: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var newLayerName by rememberSaveable { mutableStateOf("") }
@@ -56,6 +57,11 @@ fun TakeoffInspector(
             style = MaterialTheme.typography.bodySmall,
             maxLines = 2
         )
+        state.project.pages.forEach { page ->
+            Button(onClick = { onSelectPage(page.id) }, enabled = page.id != state.activePageId, modifier = Modifier.fillMaxWidth().padding(top = 3.dp)) {
+                Text("${if (page.id == state.activePageId) "●" else "○"} ${page.name}")
+            }
+        }
         Text("الأداة: ${state.selectedTool.label}", style = MaterialTheme.typography.bodySmall)
         Text("مصدر الإدخال: ${state.inputSource}", style = MaterialTheme.typography.bodySmall)
         state.pdfLabel?.let { Text("المخطط: $it", style = MaterialTheme.typography.bodySmall, maxLines = 1) }

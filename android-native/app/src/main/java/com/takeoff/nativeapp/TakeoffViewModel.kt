@@ -72,6 +72,7 @@ data class TakeoffUiState(
     val selectedTemplateId: Long? = null,
     val measurements: List<NativeMeasurement> = emptyList(),
     val project: NativeProject = NativeProject(id = 1L, name = "مشروع محلي جديد", pages = emptyList()),
+    val activePageId: Long? = null,
     val inputSource: String = "لم يبدأ إدخال",
     val isLoadingPlan: Boolean = false,
     val loadError: String? = null
@@ -92,7 +93,7 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
 
     init {
         localStore.load()?.let { stored ->
-            _state.value = _state.value.copy(project = stored.project, measurements = stored.measurements, calibration = stored.calibration, layers = stored.layers, selectedLayerId = stored.selectedLayerId, templates = stored.templates, selectedTemplateId = stored.selectedTemplateId)
+            _state.value = _state.value.copy(project = stored.project, measurements = stored.measurements, calibration = stored.calibration, layers = stored.layers, selectedLayerId = stored.selectedLayerId, templates = stored.templates, selectedTemplateId = stored.selectedTemplateId, activePageId = stored.project.pages.lastOrNull()?.id)
             nextMeasurementId = (stored.measurements.maxOfOrNull { it.id } ?: 0L) + 1L
             nextPageId = (stored.project.pages.maxOfOrNull { it.id } ?: 0L) + 1L
             nextLayerId = (stored.layers.maxOfOrNull { it.id } ?: 0L) + 1L
@@ -214,12 +215,19 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
                     current.copy(
                         pdfBitmap = bitmap,
                         isLoadingPlan = false,
+                        activePageId = page.id,
                         project = if (current.project.pages.any { it.id == page.id }) current.project else current.project.copy(pages = current.project.pages + page)
                     )
                 }.also { persistWorkspace() } }
                     .onFailure { error -> _state.update { it.copy(isLoadingPlan = false, loadError = error.message ?: "تعذر عرض المخطط.") } }
             }
         }
+    }
+
+    fun selectPage(context: Context, pageId: Long) {
+        val page = _state.value.project.pages.firstOrNull { it.id == pageId } ?: return
+        val sourceUri = page.sourceUri ?: return
+        openPdf(context, Uri.parse(sourceUri), page.name)
     }
 
     fun onMotionEvent(event: MotionEvent, planPoint: PlanPoint, screenPoint: Offset) {
