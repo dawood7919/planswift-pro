@@ -1,0 +1,19 @@
+{
+  "name": "Takeoff Platform",
+  "short_name": "Takeoff",
+  "description": "منصة القياس والتقدير الهندسي الحتمية.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f1ea",
+  "theme_color": "#102b39",
+  "lang": "ar",
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "/manus-storage/takeoff-pwa-icon_254ac5ef.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

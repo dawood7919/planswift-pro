@@ -1,0 +1,1 @@
+ALTER TABLE `takeoffItems` ADD `multiplier` decimal(12,4) DEFAULT '1' NOT NULL;

@@ -1,0 +1,111 @@
+name: takeoff-stage
+
+services:
+  takeoff-stage-db:
+    image: mysql:8.4
+    container_name: takeoff-stage-db
+    env_file:
+      - /home/ubuntu/takeoff-stage/secrets/takeoff-stage-runtime
+    volumes:
+      - takeoff_stage_mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  takeoff-stage-minio:
+    image: minio/minio:RELEASE.2024-10-29T16-01-48Z
+    container_name: takeoff-stage-minio
+    env_file:
+      - /home/ubuntu/takeoff-stage/secrets/takeoff-stage-runtime
+    command: server /data --console-address ":9001"
+    volumes:
+      - takeoff_stage_minio:/data
+    restart: unless-stopped
+
+  takeoff-stage-storage-init:
+    image: minio/mc:RELEASE.2024-10-29T15-34-59Z
+    container_name: takeoff-stage-storage-init
+    env_file:
+      - /home/ubuntu/takeoff-stage/secrets/takeoff-stage-runtime
+    entrypoint: ["/bin/sh", "-ec"]
+    command: ["until mc alias set stage http://takeoff-stage-minio:9000 \"$${MINIO_ROOT_USER}\" \"$${MINIO_ROOT_PASSWORD}\"; do sleep 2; done; mc mb --ignore-existing stage/takeoff-stage; mc anonymous set none stage/takeoff-stage"]
+    depends_on:
+      takeoff-stage-minio:
+        condition: service_started
+    restart: "no"
+    profiles: ["app"]
+
+  takeoff-validation:
+    image: node:22-bookworm-slim
+    container_name: takeoff-stage-validation
+    working_dir: /workspace
+    user: "1000:1000"
+    volumes:
+      - /home/ubuntu/takeoff-stage/current:/workspace
+      - takeoff_stage_pnpm_store:/home/node/.local/share/pnpm/store
+    environment:
+      CI: "true"
+      PNPM_HOME: /home/node/.local/share/pnpm
+      PATH: /home/node/.local/share/pnpm:${PATH}
+    command: >
+      sh -lc "corepack pnpm install --frozen-lockfile && corepack pnpm check && corepack pnpm test && corepack pnpm build"
+    profiles: ["validation"]
+
+  takeoff-migrate:
+    image: node:22-bookworm-slim
+    container_name: takeoff-stage-migrate
+    working_dir: /workspace
+    user: "1000:1000"
+    volumes:
+      - /home/ubuntu/takeoff-stage/current:/workspace
+      - takeoff_stage_pnpm_store:/home/node/.local/share/pnpm/store
+    env_file:
+      - /home/ubuntu/takeoff-stage/secrets/takeoff-stage-runtime
+    environment:
+      CI: "true"
+      PNPM_HOME: /home/node/.local/share/pnpm
+      PATH: /home/node/.local/share/pnpm:${PATH}
+    command: >
+      sh -lc "corepack pnpm install --frozen-lockfile && corepack pnpm drizzle-kit migrate"
+    depends_on:
+      takeoff-stage-db:
+        condition: service_healthy
+    profiles: ["migrate"]
+
+  takeoff-app:
+    image: node:22-bookworm-slim
+    container_name: takeoff-stage-app
+    working_dir: /workspace
+    user: "1000:1000"
+    volumes:
+      - /home/ubuntu/takeoff-stage/current:/workspace:ro
+    env_file:
+      - /home/ubuntu/takeoff-stage/secrets/takeoff-stage-runtime
+    environment:
+      NODE_ENV: production
+    command: >
+      sh -lc "corepack pnpm start"
+    depends_on:
+      takeoff-stage-db:
+        condition: service_healthy
+      takeoff-stage-storage-init:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:4179:3000"
+    restart: unless-stopped
+    profiles: ["app"]
+
+volumes:
+  takeoff_stage_pnpm_store:
+    name: takeoff_stage_pnpm_store
+  takeoff_stage_mysql:
+    name: takeoff_stage_mysql
+  takeoff_stage_minio:
+    name: takeoff_stage_minio
+
+networks:
+  default:
+    name: takeoff_stage_network
