@@ -27,7 +27,7 @@ export const appRouter = router({
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     createNativeSession: protectedProcedure.mutation(async ({ ctx }) => {
-      const token = await sdk.createSessionToken(ctx.user.openId, { expiresInMs: 7 * 24 * 60 * 60 * 1000, name: ctx.user.name ?? "" });
+      const token = await sdk.createSessionToken(ctx.user.openId, { expiresInMs: 7 * 24 * 60 * 60 * 1000, name: ctx.user.name?.trim() || "Android Device" });
       return { token, expiresInSeconds: 7 * 24 * 60 * 60 };
     }),
     logout: publicProcedure.mutation(({ ctx }) => {

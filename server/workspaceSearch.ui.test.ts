@@ -23,6 +23,7 @@ vi.mock("../client/src/lib/trpc", () => ({
       get: { useQuery: () => ({ data: workspace, isLoading: false }) },
       saveWorkspace: { useMutation: () => mutation }, addBlankPage: { useMutation: () => mutation }, renamePage: { useMutation: () => mutation }, deletePage: { useMutation: () => mutation }, reorderPages: { useMutation: () => mutation }, exportProjectFile: { useMutation: () => mutation }, createVersion: { useMutation: () => mutation }, restoreVersion: { useMutation: () => mutation }, createScaleContext: { useMutation: () => mutation }, activateScaleContext: { useMutation: () => mutation }, deleteScaleContext: { useMutation: () => mutation }, createReview: { useMutation: () => mutation }, deleteReview: { useMutation: () => mutation }, createAnnotation: { useMutation: () => mutation }, deleteAnnotation: { useMutation: () => mutation },
     },
+    auth: { createNativeSession: { useMutation: () => mutation } },
     templates: { list: { useQuery: () => ({ data: templates }) }, create: { useMutation: () => mutation }, update: { useMutation: () => mutation }, delete: { useMutation: () => mutation }, folders: { list: { useQuery: () => ({ data: [] }) }, create: { useMutation: () => mutation }, delete: { useMutation: () => mutation } }, costItems: { create: { useMutation: () => mutation }, delete: { useMutation: () => mutation } } },
   },
 }));

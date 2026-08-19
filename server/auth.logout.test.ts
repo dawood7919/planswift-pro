@@ -72,4 +72,15 @@ describe("auth.logout", () => {
     expect(signer).toHaveBeenCalledWith("sample-user", { expiresInMs: 7 * 24 * 60 * 60 * 1000, name: "Sample User" });
     signer.mockRestore();
   });
+
+  it("uses a non-empty device label when the account has no display name", async () => {
+    const { ctx } = createAuthContext();
+    ctx.user = { ...ctx.user!, name: null };
+    const signer = vi.spyOn(sdk, "createSessionToken").mockResolvedValue("native-session-token");
+
+    await appRouter.createCaller(ctx).auth.createNativeSession();
+
+    expect(signer).toHaveBeenCalledWith("sample-user", { expiresInMs: 7 * 24 * 60 * 60 * 1000, name: "Android Device" });
+    signer.mockRestore();
+  });
 });

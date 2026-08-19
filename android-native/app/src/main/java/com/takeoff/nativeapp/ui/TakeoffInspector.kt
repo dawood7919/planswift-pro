@@ -21,6 +21,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.takeoff.nativeapp.MeasurementKind
 import com.takeoff.nativeapp.TakeoffUiState
@@ -38,6 +39,10 @@ fun TakeoffInspector(
     onVolumeDepthChange: (String) -> Unit,
     onMultiplierChange: (String) -> Unit,
     onNoteTextChange: (String) -> Unit,
+    onCloudEndpointChange: (String) -> Unit,
+    onConnectCloud: (String, String) -> Unit,
+    onRefreshCloudProjects: () -> Unit,
+    onClearCloudConnection: () -> Unit,
     onApplyCalibration: () -> Unit,
     onDeleteMeasurement: (Long) -> Unit,
     onDuplicateMeasurement: (Long) -> Unit,
@@ -63,6 +68,7 @@ fun TakeoffInspector(
     var newCostFactor by rememberSaveable { mutableStateOf("1") }
     var newCostRate by rememberSaveable { mutableStateOf("0") }
     var newCostWaste by rememberSaveable { mutableStateOf("0") }
+    var deviceToken by rememberSaveable { mutableStateOf("") }
     Column(modifier = modifier.background(Color(0xFFF9FCFE)).padding(10.dp)) {
         Text("المفتش", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(6.dp))
@@ -81,6 +87,21 @@ fun TakeoffInspector(
         Text("مصدر الإدخال: ${state.inputSource}", style = MaterialTheme.typography.bodySmall)
         state.pdfLabel?.let { Text("المخطط: $it", style = MaterialTheme.typography.bodySmall, maxLines = 1) }
         state.loadError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+        Spacer(Modifier.height(12.dp))
+        Text("ربط منصة Takeoff", style = MaterialTheme.typography.titleSmall)
+        Text("أنشئ رمز Android مؤقتاً من مساحة العمل على الويب، ثم الصقه هنا. لا يُرسل الرمز إلى أي عنوان غير رابط المنصة المحدد.", style = MaterialTheme.typography.bodySmall)
+        OutlinedTextField(value = state.cloudEndpoint, onValueChange = onCloudEndpointChange, label = { Text("رابط المنصة HTTPS") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
+        OutlinedTextField(value = deviceToken, onValueChange = { deviceToken = it }, label = { Text("رمز ربط Android المؤقت") }, singleLine = true, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
+        androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 4.dp)) {
+            Button(onClick = { onConnectCloud(state.cloudEndpoint, deviceToken); deviceToken = "" }, enabled = deviceToken.isNotBlank()) { Text("ربط الجهاز") }
+            Button(onClick = onRefreshCloudProjects, enabled = !state.isRefreshingCloudProjects) { Text(if (state.isRefreshingCloudProjects) "جارٍ التحديث" else "تحديث المشاريع") }
+            Button(onClick = onClearCloudConnection) { Text("إلغاء الربط") }
+        }
+        Text(state.cloudStatus, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 3.dp))
+        state.cloudError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+        state.cloudProjects.take(8).forEach { project ->
+            Text("• ${project.name} · ${project.currency} · ${project.lengthUnit}", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 2.dp))
+        }
         Spacer(Modifier.height(12.dp))
         Text("الطبقات", style = MaterialTheme.typography.titleSmall)
         OutlinedTextField(

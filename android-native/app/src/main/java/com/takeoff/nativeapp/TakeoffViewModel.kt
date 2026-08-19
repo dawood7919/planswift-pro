@@ -83,6 +83,11 @@ data class TakeoffUiState(
     val selectedMeasurementIds: Set<Long> = emptySet(),
     val cutoutTargetId: Long? = null,
     val annotations: List<NativeAnnotation> = emptyList(),
+    val cloudEndpoint: String = NativeConnectionStore.DEFAULT_ENDPOINT,
+    val cloudProjects: List<NativeCloudProject> = emptyList(),
+    val cloudStatus: String = "غير مرتبط بالمنصة",
+    val cloudError: String? = null,
+    val isRefreshingCloudProjects: Boolean = false,
     val noteText: String = "",
     val project: NativeProject = NativeProject(id = 1L, name = "مشروع محلي جديد", pages = emptyList()),
     val activePageId: Long? = null,
@@ -95,6 +100,8 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
     private val _state = MutableStateFlow(TakeoffUiState())
     val state: StateFlow<TakeoffUiState> = _state.asStateFlow()
     private val localStore = NativeProjectStore(application)
+    private val connectionStore = NativeConnectionStore(application)
+    private val cloudApi = NativeCloudApi()
     private var lastScreenPoint: Offset? = null
     private var activePointerId: Int? = null
     private var lastPinchDistance: Float? = null
@@ -115,6 +122,16 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
             nextTemplateId = (stored.templates.maxOfOrNull { it.id } ?: 0L) + 1L
             nextCostItemId = (stored.templates.flatMap { it.costItems }.maxOfOrNull { it.id } ?: 0L) + 1L
             nextAnnotationId = (stored.annotations.maxOfOrNull { it.id } ?: 0L) + 1L
+        }
+        connectionStore.load()?.let { connection ->
+            _state.update {
+                it.copy(
+                    cloudEndpoint = connection.endpoint,
+                    cloudProjects = connection.cachedProjects,
+                    cloudStatus = if (connection.isExpired()) "انتهت جلسة الجهاز؛ ما زالت قائمة المشاريع المحلية متاحة" else "جلسة الجهاز محفوظة",
+                    cloudError = if (connection.isExpired()) "أنشئ رمز ربط جديداً من المنصة للمتابعة." else null
+                )
+            }
         }
     }
 
@@ -223,6 +240,61 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
 
     fun setNoteText(value: String) {
         _state.update { it.copy(noteText = value.take(400)) }
+    }
+
+    fun setCloudEndpoint(value: String) {
+        _state.update { it.copy(cloudEndpoint = value.take(500), cloudError = null) }
+    }
+
+    fun connectCloud(endpoint: String, token: String) {
+        val normalizedEndpoint = connectionStore.normalizeEndpoint(endpoint)
+        if (normalizedEndpoint == null) {
+            _state.update { it.copy(cloudError = "استخدم رابط HTTPS صحيحاً للمنصة.") }
+            return
+        }
+        val normalizedToken = token.trim()
+        if (normalizedToken.length < 32) {
+            _state.update { it.copy(cloudError = "ألصق رمز ربط Android الصادر من المنصة.") }
+            return
+        }
+        val connection = NativeDeviceConnection(
+            endpoint = normalizedEndpoint,
+            token = normalizedToken,
+            expiresAtEpochMillis = System.currentTimeMillis() + 7L * 24L * 60L * 60L * 1000L,
+            cachedProjects = _state.value.cloudProjects
+        )
+        connectionStore.save(connection)
+        _state.update { it.copy(cloudEndpoint = normalizedEndpoint, cloudStatus = "حُفظ رمز الجهاز؛ جارٍ فحص المشاريع", cloudError = null) }
+        refreshCloudProjects()
+    }
+
+    fun refreshCloudProjects() {
+        val connection = connectionStore.load()
+        if (connection == null) {
+            _state.update { it.copy(cloudError = "اربط الجهاز أولاً برمز من منصة Takeoff.") }
+            return
+        }
+        if (connection.isExpired()) {
+            _state.update { it.copy(cloudStatus = "انتهت جلسة الجهاز", cloudError = "أنشئ رمز ربط جديداً من المنصة. احتُفظ بالمشاريع المخزنة محلياً.") }
+            return
+        }
+        _state.update { it.copy(isRefreshingCloudProjects = true, cloudError = null) }
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { cloudApi.listProjects(connection) }
+                .onSuccess { projects ->
+                    val updatedConnection = connection.copy(cachedProjects = projects)
+                    connectionStore.save(updatedConnection)
+                    _state.update { it.copy(cloudProjects = projects, cloudStatus = "آخر تحديث من المنصة ناجح", cloudError = null, isRefreshingCloudProjects = false) }
+                }
+                .onFailure { error ->
+                    _state.update { it.copy(cloudStatus = "تعذر التحديث؛ تُعرض النسخة المحلية", cloudError = error.message ?: "تعذر الوصول إلى المنصة.", isRefreshingCloudProjects = false) }
+                }
+        }
+    }
+
+    fun clearCloudConnection() {
+        connectionStore.clear()
+        _state.update { it.copy(cloudProjects = emptyList(), cloudStatus = "أُلغي ربط الجهاز", cloudError = null) }
     }
 
     fun selectCutoutTarget(id: Long) {
