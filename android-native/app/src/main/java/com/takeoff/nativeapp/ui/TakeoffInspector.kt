@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import com.takeoff.nativeapp.MeasurementKind
 import com.takeoff.nativeapp.TakeoffUiState
 import com.takeoff.nativeapp.estimation.EstimationEngine
+import com.takeoff.nativeapp.estimation.CostKind
 import com.takeoff.nativeapp.estimation.TemplateKind
 
 @Composable
@@ -47,6 +48,7 @@ fun TakeoffInspector(
     onToggleLayer: (Long) -> Unit,
     onAddTemplate: (String, String, String, TemplateKind) -> Unit,
     onSelectTemplate: (Long?) -> Unit,
+    onAddCostItem: (String, String, String, String, String, CostKind) -> Unit,
     onSelectPage: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -54,6 +56,11 @@ fun TakeoffInspector(
     var newTemplateName by rememberSaveable { mutableStateOf("") }
     var newTemplateUnit by rememberSaveable { mutableStateOf("وحدة") }
     var newTemplateRate by rememberSaveable { mutableStateOf("0") }
+    var newCostName by rememberSaveable { mutableStateOf("") }
+    var newCostUnit by rememberSaveable { mutableStateOf("وحدة") }
+    var newCostFactor by rememberSaveable { mutableStateOf("1") }
+    var newCostRate by rememberSaveable { mutableStateOf("0") }
+    var newCostWaste by rememberSaveable { mutableStateOf("0") }
     Column(modifier = modifier.background(Color(0xFFF9FCFE)).padding(10.dp)) {
         Text("المفتش", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(6.dp))
@@ -108,6 +115,21 @@ fun TakeoffInspector(
             Button(onClick = { onSelectTemplate(template.id) }, modifier = Modifier.fillMaxWidth().padding(top = 3.dp), enabled = state.selectedTemplateId != template.id) {
                 Text("${template.kind.name} · ${template.name} · ${template.rate}/${template.unit}")
             }
+        }
+        state.selectedTemplateId?.let { selectedId ->
+            val selected = state.templates.firstOrNull { it.id == selectedId }
+            Text("بنود ${selected?.name ?: "القالب"}", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 6.dp))
+            OutlinedTextField(value = newCostName, onValueChange = { newCostName = it }, label = { Text("اسم البند") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 3.dp))
+            OutlinedTextField(value = newCostUnit, onValueChange = { newCostUnit = it }, label = { Text("الوحدة") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 3.dp))
+            OutlinedTextField(value = newCostFactor, onValueChange = { newCostFactor = it }, label = { Text("كمية لكل وحدة") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 3.dp))
+            OutlinedTextField(value = newCostRate, onValueChange = { newCostRate = it }, label = { Text("سعر الوحدة") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 3.dp))
+            OutlinedTextField(value = newCostWaste, onValueChange = { newCostWaste = it }, label = { Text("هالك %") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 3.dp))
+            androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 3.dp)) {
+                listOf(CostKind.MATERIAL to "مواد", CostKind.LABOR to "عمالة", CostKind.EQUIPMENT to "معدات").forEach { (kind, label) ->
+                    Button(onClick = { onAddCostItem(newCostName, newCostUnit, newCostFactor, newCostRate, newCostWaste, kind); newCostName = "" }, enabled = newCostName.trim().isNotEmpty()) { Text(label) }
+                }
+            }
+            selected?.costItems?.forEach { item -> Text("${item.kind.name} · ${item.name}: ${item.quantityFactor} ${item.unit} × ${item.rate} (هالك ${item.wastePercent}%)", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 2.dp)) }
         }
         Spacer(Modifier.height(12.dp))
         Text("المقياس", style = MaterialTheme.typography.titleSmall)

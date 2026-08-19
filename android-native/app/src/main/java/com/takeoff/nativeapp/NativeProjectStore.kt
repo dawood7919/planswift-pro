@@ -2,7 +2,9 @@ package com.takeoff.nativeapp
 
 import android.content.Context
 import com.takeoff.nativeapp.measurement.PlanPoint
+import com.takeoff.nativeapp.estimation.CostKind
 import com.takeoff.nativeapp.estimation.NativeTemplate
+import com.takeoff.nativeapp.estimation.TemplateCostItem
 import com.takeoff.nativeapp.estimation.TemplateKind
 import org.json.JSONArray
 import org.json.JSONObject
@@ -36,7 +38,10 @@ class NativeProjectStore(context: Context) {
         } ?: listOf(NativeLayer(1L, "قياسات عامة", 0xFF59C3F5))
         val selectedLayerId = root.optLong("selectedLayerId", layers.first().id)
         val templates = root.optJSONArray("templates")?.toList { template ->
-            NativeTemplate(template.getLong("id"), TemplateKind.valueOf(template.getString("kind")), template.getString("name"), template.getString("unit"), template.getDouble("rate"))
+            val costItems = template.optJSONArray("costItems")?.toList { item ->
+                TemplateCostItem(item.getLong("id"), CostKind.valueOf(item.getString("kind")), item.getString("name"), item.getDouble("quantityFactor"), item.getString("unit"), item.getDouble("rate"), item.optDouble("wastePercent", 0.0))
+            } ?: emptyList()
+            NativeTemplate(template.getLong("id"), TemplateKind.valueOf(template.getString("kind")), template.getString("name"), template.getString("unit"), template.getDouble("rate"), costItems)
         } ?: emptyList()
         val selectedTemplateId = root.optLong("selectedTemplateId", -1L).takeIf { id -> templates.any { it.id == id } }
         val measurements = root.getJSONArray("measurements").toList { measurement ->
@@ -80,7 +85,9 @@ class NativeProjectStore(context: Context) {
                 workspace.layers.forEach { layer -> put(JSONObject().put("id", layer.id).put("name", layer.name).put("color", layer.color).put("visible", layer.visible)) }
             })
             .put("templates", JSONArray().apply {
-                workspace.templates.forEach { template -> put(JSONObject().put("id", template.id).put("kind", template.kind.name).put("name", template.name).put("unit", template.unit).put("rate", template.rate)) }
+                workspace.templates.forEach { template -> put(JSONObject().put("id", template.id).put("kind", template.kind.name).put("name", template.name).put("unit", template.unit).put("rate", template.rate).put("costItems", JSONArray().apply {
+                    template.costItems.forEach { item -> put(JSONObject().put("id", item.id).put("kind", item.kind.name).put("name", item.name).put("quantityFactor", item.quantityFactor).put("unit", item.unit).put("rate", item.rate).put("wastePercent", item.wastePercent)) }
+                })) }
             })
         workspace.calibration?.let { root.put("calibration", JSONObject().put("factor", it.factor).put("unit", it.unit)) }
         preferences.edit().putString("workspace", root.toString()).apply()

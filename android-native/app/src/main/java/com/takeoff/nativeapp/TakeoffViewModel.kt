@@ -11,6 +11,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.takeoff.nativeapp.estimation.NativeTemplate
 import com.takeoff.nativeapp.estimation.TemplateKind
+import com.takeoff.nativeapp.estimation.CostKind
+import com.takeoff.nativeapp.estimation.TemplateCostItem
 import com.takeoff.nativeapp.measurement.MeasurementEngine
 import com.takeoff.nativeapp.measurement.PlanPoint
 import com.takeoff.nativeapp.report.NativeReportEngine
@@ -93,6 +95,7 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
     private var nextPageId = 1L
     private var nextLayerId = 2L
     private var nextTemplateId = 1L
+    private var nextCostItemId = 1L
 
     init {
         localStore.load()?.let { stored ->
@@ -101,6 +104,7 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
             nextPageId = (stored.project.pages.maxOfOrNull { it.id } ?: 0L) + 1L
             nextLayerId = (stored.layers.maxOfOrNull { it.id } ?: 0L) + 1L
             nextTemplateId = (stored.templates.maxOfOrNull { it.id } ?: 0L) + 1L
+            nextCostItemId = (stored.templates.flatMap { it.costItems }.maxOfOrNull { it.id } ?: 0L) + 1L
         }
     }
 
@@ -206,6 +210,19 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
 
     fun selectTemplate(templateId: Long?) {
         _state.update { state -> state.copy(selectedTemplateId = templateId?.takeIf { id -> state.templates.any { it.id == id } }) }
+    }
+
+    fun addCostItem(name: String, unit: String, factorText: String, rateText: String, wasteText: String, kind: CostKind) {
+        val templateId = _state.value.selectedTemplateId ?: return
+        val normalizedName = name.trim().take(120)
+        val normalizedUnit = unit.trim().take(32)
+        val factor = factorText.toDoubleOrNull()
+        val rate = rateText.toDoubleOrNull()
+        val waste = wasteText.toDoubleOrNull()
+        if (normalizedName.isEmpty() || normalizedUnit.isEmpty() || factor == null || rate == null || waste == null || !factor.isFinite() || !rate.isFinite() || !waste.isFinite() || factor < 0 || rate < 0 || waste < 0 || waste > 100) return
+        val item = TemplateCostItem(nextCostItemId++, kind, normalizedName, factor, normalizedUnit, rate, waste)
+        _state.update { current -> current.copy(templates = current.templates.map { template -> if (template.id == templateId) template.copy(costItems = template.costItems + item) else template }, inputSource = "أضيف بند ${item.name} للقالب") }
+        persistWorkspace()
     }
 
     fun exportReportCsv(): String {

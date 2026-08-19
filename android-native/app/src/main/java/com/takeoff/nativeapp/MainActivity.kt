@@ -76,6 +76,7 @@ class MainActivity : ComponentActivity() {
                     onToggleLayer = viewModel::toggleLayer,
                     onAddTemplate = viewModel::addTemplate,
                     onSelectTemplate = viewModel::selectTemplate,
+                    onAddCostItem = viewModel::addCostItem,
                     onExportReport = { reportExporter.launch("takeoff-report.csv") },
                     onSelectPage = { pageId -> viewModel.selectPage(this, pageId) },
                     onMotionEvent = viewModel::onMotionEvent
@@ -109,6 +110,7 @@ private fun TakeoffNativeScreen(
     onToggleLayer: (Long) -> Unit,
     onAddTemplate: (String, String, String, com.takeoff.nativeapp.estimation.TemplateKind) -> Unit,
     onSelectTemplate: (Long?) -> Unit,
+    onAddCostItem: (String, String, String, String, String, com.takeoff.nativeapp.estimation.CostKind) -> Unit,
     onExportReport: () -> Unit,
     onSelectPage: (Long) -> Unit,
     onMotionEvent: (android.view.MotionEvent, com.takeoff.nativeapp.measurement.PlanPoint, androidx.compose.ui.geometry.Offset) -> Unit
@@ -146,6 +148,7 @@ private fun TakeoffNativeScreen(
                         onToggleLayer = onToggleLayer,
                         onAddTemplate = onAddTemplate,
                         onSelectTemplate = onSelectTemplate,
+                        onAddCostItem = onAddCostItem,
                         onSelectPage = onSelectPage,
                         modifier = Modifier.fillMaxSize()
                     )
