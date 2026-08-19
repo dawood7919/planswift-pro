@@ -20,4 +20,13 @@ object MeasurementEngine {
         }
         return kotlin.math.abs(signedArea) / 2.0
     }
+
+    fun scaleFactor(drawingDistance: Double, knownDistance: Double): Double? {
+        if (!drawingDistance.isFinite() || !knownDistance.isFinite() || drawingDistance <= 0 || knownDistance <= 0) return null
+        return knownDistance / drawingDistance
+    }
+
+    fun calibratedLength(drawingLength: Double, factor: Double): Double = drawingLength * factor
+
+    fun calibratedArea(drawingArea: Double, factor: Double): Double = drawingArea * factor * factor
 }

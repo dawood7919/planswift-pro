@@ -20,6 +20,7 @@ import kotlinx.coroutines.withContext
 
 enum class NativeTool(val label: String) {
     PAN("تحريك"),
+    CALIBRATE("معايرة"),
     COUNT("عد"),
     LINEAR("طول"),
     AREA("مساحة")
@@ -34,6 +35,8 @@ data class NativeMeasurement(
     val value: Double
 )
 
+data class NativeCalibration(val factor: Double, val unit: String)
+
 data class TakeoffUiState(
     val pdfBitmap: Bitmap? = null,
     val pdfLabel: String? = null,
@@ -41,6 +44,10 @@ data class TakeoffUiState(
     val pan: Offset = Offset.Zero,
     val zoom: Float = 1f,
     val activePoints: List<PlanPoint> = emptyList(),
+    val calibrationPoints: List<PlanPoint> = emptyList(),
+    val knownDistance: String = "1",
+    val scaleUnit: String = "m",
+    val calibration: NativeCalibration? = null,
     val measurements: List<NativeMeasurement> = emptyList(),
     val inputSource: String = "لم يبدأ إدخال",
     val isLoadingPlan: Boolean = false,
@@ -52,6 +59,8 @@ class TakeoffViewModel : ViewModel() {
     val state: StateFlow<TakeoffUiState> = _state.asStateFlow()
     private var lastScreenPoint: Offset? = null
     private var activePointerId: Int? = null
+    private var lastPinchDistance: Float? = null
+    private var isPinching = false
     private var nextMeasurementId = 1L
 
     fun selectTool(tool: NativeTool) {
@@ -60,6 +69,36 @@ class TakeoffViewModel : ViewModel() {
 
     fun clearMeasurements() {
         _state.update { it.copy(measurements = emptyList(), activePoints = emptyList()) }
+    }
+
+    fun undoLastMeasurement() {
+        _state.update { current -> current.copy(measurements = current.measurements.dropLast(1)) }
+    }
+
+    fun setKnownDistance(value: String) {
+        _state.update { it.copy(knownDistance = value) }
+    }
+
+    fun setScaleUnit(unit: String) {
+        _state.update { it.copy(scaleUnit = unit) }
+    }
+
+    fun applyCalibration() {
+        val current = _state.value
+        val knownDistance = current.knownDistance.toDoubleOrNull()
+        val drawingDistance = MeasurementEngine.polylineLength(current.calibrationPoints)
+        val factor = knownDistance?.let { MeasurementEngine.scaleFactor(drawingDistance, it) }
+        if (factor == null) {
+            _state.update { it.copy(inputSource = "أدخل مسافة حقيقية موجبة بعد تحديد نقطتين") }
+            return
+        }
+        _state.update {
+            it.copy(
+                calibration = NativeCalibration(factor, it.scaleUnit),
+                inputSource = "اعتمد المقياس: ${"%.5f".format(factor)} ${it.scaleUnit}/وحدة رسم",
+                calibrationPoints = emptyList()
+            )
+        }
     }
 
     fun openPdf(context: Context, uri: Uri, label: String) {
@@ -94,31 +133,64 @@ class TakeoffViewModel : ViewModel() {
         val source = if (isStylus) "قلم S Pen / Stylus" else "لمس"
 
         when (action) {
-            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
+            MotionEvent.ACTION_DOWN -> {
+                isPinching = false
                 activePointerId = pointerId
                 lastScreenPoint = screenPoint
                 _state.update { current ->
                     when (current.selectedTool) {
                         NativeTool.PAN -> current.copy(inputSource = source)
+                        NativeTool.CALIBRATE -> current.copy(inputSource = "المعايرة: المس النقطة الأولى ثم الثانية")
                         NativeTool.COUNT -> current.copy(inputSource = source)
                         NativeTool.LINEAR, NativeTool.AREA -> current.copy(inputSource = source, activePoints = listOf(planPoint))
                     }
                 }
             }
+            MotionEvent.ACTION_POINTER_DOWN -> {
+                if (event.pointerCount >= 2) {
+                    isPinching = true
+                    activePointerId = null
+                    lastPinchDistance = event.pointerDistance()
+                    _state.update { it.copy(activePoints = emptyList(), inputSource = "لمس متعدد: تكبير وتحريك") }
+                }
+            }
             MotionEvent.ACTION_MOVE -> {
                 val current = _state.value
-                if (current.selectedTool == NativeTool.PAN) {
+                if (isPinching && event.pointerCount >= 2) {
+                    val distance = event.pointerDistance()
+                    val previousDistance = lastPinchDistance ?: distance
+                    val zoom = (current.zoom * (distance / previousDistance)).coerceIn(0.5f, 5f)
+                    _state.update { it.copy(zoom = zoom, inputSource = "لمس متعدد: تكبير ${"%.2f".format(zoom)}×") }
+                    lastPinchDistance = distance
+                } else if (current.selectedTool == NativeTool.PAN) {
                     val previous = lastScreenPoint ?: screenPoint
                     _state.update { it.copy(pan = it.pan + (screenPoint - previous), inputSource = source) }
                     lastScreenPoint = screenPoint
-                } else if (activePointerId == pointerId && current.selectedTool != NativeTool.COUNT) {
+                } else if (activePointerId == pointerId && current.selectedTool != NativeTool.COUNT && current.selectedTool != NativeTool.CALIBRATE) {
                     _state.update { it.copy(activePoints = it.activePoints.appendDistinct(planPoint)) }
                 }
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> {
+                if (isPinching) {
+                    lastPinchDistance = null
+                    activePointerId = null
+                    lastScreenPoint = null
+                    if (action == MotionEvent.ACTION_UP || event.pointerCount <= 2) isPinching = false
+                    _state.update { it.copy(activePoints = emptyList()) }
+                    return
+                }
                 val current = _state.value
                 when (current.selectedTool) {
                     NativeTool.PAN -> Unit
+                    NativeTool.CALIBRATE -> {
+                        val points = (current.calibrationPoints + planPoint).takeLast(2)
+                        _state.update {
+                            it.copy(
+                                calibrationPoints = points,
+                                inputSource = if (points.size == 2) "أدخل المسافة الحقيقية ثم اعتمد المقياس" else "المعايرة: حُفظت النقطة الأولى"
+                            )
+                        }
+                    }
                     NativeTool.COUNT -> commit(MeasurementKind.COUNT, listOf(planPoint), 1.0)
                     NativeTool.LINEAR -> {
                         val points = current.activePoints.appendDistinct(planPoint)
@@ -136,6 +208,8 @@ class TakeoffViewModel : ViewModel() {
             MotionEvent.ACTION_CANCEL -> {
                 activePointerId = null
                 lastScreenPoint = null
+                lastPinchDistance = null
+                isPinching = false
                 _state.update { it.copy(activePoints = emptyList(), inputSource = "أُلغي الإدخال لحماية القياس") }
             }
         }
@@ -149,5 +223,10 @@ class TakeoffViewModel : ViewModel() {
     private fun List<PlanPoint>.appendDistinct(point: PlanPoint): List<PlanPoint> {
         val last = lastOrNull() ?: return listOf(point)
         return if (kotlin.math.abs(last.x - point.x) < 1f && kotlin.math.abs(last.y - point.y) < 1f) this else this + point
+    }
+
+    private fun MotionEvent.pointerDistance(): Float {
+        if (pointerCount < 2) return 0f
+        return kotlin.math.hypot(getX(0) - getX(1), getY(0) - getY(1))
     }
 }

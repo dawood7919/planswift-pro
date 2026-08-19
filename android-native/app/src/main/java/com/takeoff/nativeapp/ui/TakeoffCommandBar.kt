@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.PanTool
 import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.Texture
 import androidx.compose.material.icons.filled.TouchApp
+import androidx.compose.material.icons.filled.Undo
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -33,7 +34,8 @@ fun TakeoffCommandBar(
     hasMeasurements: Boolean,
     onOpenPlan: () -> Unit,
     onToolSelected: (NativeTool) -> Unit,
-    onClear: () -> Unit
+    onClear: () -> Unit,
+    onUndo: () -> Unit
 ) {
     TopAppBar(
         title = { Text("Takeoff Native", style = MaterialTheme.typography.titleMedium) },
@@ -46,6 +48,7 @@ fun TakeoffCommandBar(
                 NativeTool.entries.forEach { tool ->
                     val icon = when (tool) {
                         NativeTool.PAN -> Icons.Default.PanTool
+                        NativeTool.CALIBRATE -> Icons.Default.Straighten
                         NativeTool.COUNT -> Icons.Default.TouchApp
                         NativeTool.LINEAR -> Icons.Default.Straighten
                         NativeTool.AREA -> Icons.Default.Texture
@@ -57,7 +60,10 @@ fun TakeoffCommandBar(
                         colors = if (tool == activeTool) AssistChipDefaults.assistChipColors(containerColor = MaterialTheme.colorScheme.primaryContainer) else AssistChipDefaults.assistChipColors()
                     )
                 }
-                if (hasMeasurements) AssistChip(onClick = onClear, label = { Text("مسح") }, leadingIcon = { Icon(Icons.Default.DeleteSweep, null) })
+                if (hasMeasurements) {
+                    AssistChip(onClick = onUndo, label = { Text("تراجع") }, leadingIcon = { Icon(Icons.Default.Undo, null) })
+                    AssistChip(onClick = onClear, label = { Text("مسح") }, leadingIcon = { Icon(Icons.Default.DeleteSweep, null) })
+                }
             }
         }
     )

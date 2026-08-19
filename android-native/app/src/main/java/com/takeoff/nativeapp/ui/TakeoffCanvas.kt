@@ -71,6 +71,9 @@ fun TakeoffCanvas(
             }
             val active = state.activePoints.map(frame::toScreen)
             if (active.size > 1) for (index in 0 until active.lastIndex) drawLine(Color(0xFFFFE082), active[index], active[index + 1], strokeWidth = 3f)
+            val calibration = state.calibrationPoints.map(frame::toScreen)
+            calibration.forEach { drawCircle(Color(0xFFFFE082), radius = 10f, center = it) }
+            if (calibration.size == 2) drawLine(Color(0xFFFFE082), calibration[0], calibration[1], strokeWidth = 4f)
         }
     }
     if (bitmap == null && !state.isLoadingPlan) Text("افتح ملف PDF لبدء القياس", color = Color.White, fontSize = 17.sp, textAlign = TextAlign.Center)

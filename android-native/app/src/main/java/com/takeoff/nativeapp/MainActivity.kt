@@ -49,6 +49,10 @@ class MainActivity : ComponentActivity() {
                     onOpenPlan = { filePicker.launch(arrayOf("application/pdf")) },
                     onToolSelected = viewModel::selectTool,
                     onClear = viewModel::clearMeasurements,
+                    onUndo = viewModel::undoLastMeasurement,
+                    onKnownDistanceChange = viewModel::setKnownDistance,
+                    onScaleUnitChange = viewModel::setScaleUnit,
+                    onApplyCalibration = viewModel::applyCalibration,
                     onMotionEvent = viewModel::onMotionEvent
                 )
             }
@@ -62,6 +66,10 @@ private fun TakeoffNativeScreen(
     onOpenPlan: () -> Unit,
     onToolSelected: (NativeTool) -> Unit,
     onClear: () -> Unit,
+    onUndo: () -> Unit,
+    onKnownDistanceChange: (String) -> Unit,
+    onScaleUnitChange: (String) -> Unit,
+    onApplyCalibration: () -> Unit,
     onMotionEvent: (android.view.MotionEvent, com.takeoff.nativeapp.measurement.PlanPoint, androidx.compose.ui.geometry.Offset) -> Unit
 ) {
     Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFFF3F7F9)) {
@@ -72,13 +80,20 @@ private fun TakeoffNativeScreen(
                 hasMeasurements = state.measurements.isNotEmpty(),
                 onOpenPlan = onOpenPlan,
                 onToolSelected = onToolSelected,
-                onClear = onClear
+                onClear = onClear,
+                onUndo = onUndo
             )
             Row(modifier = Modifier.fillMaxSize().padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Box(modifier = Modifier.weight(1f).fillMaxSize().background(Color(0xFF06202D))) {
                     TakeoffCanvas(state = state, onMotionEvent = onMotionEvent)
                 }
-                TakeoffInspector(state = state, modifier = Modifier.fillMaxSize().weight(0.34f))
+                TakeoffInspector(
+                    state = state,
+                    onKnownDistanceChange = onKnownDistanceChange,
+                    onScaleUnitChange = onScaleUnitChange,
+                    onApplyCalibration = onApplyCalibration,
+                    modifier = Modifier.fillMaxSize().weight(0.34f)
+                )
             }
         }
     }
