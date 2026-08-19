@@ -35,7 +35,8 @@ fun TakeoffCommandBar(
     onOpenPlan: () -> Unit,
     onToolSelected: (NativeTool) -> Unit,
     onClear: () -> Unit,
-    onUndo: () -> Unit
+    onUndo: () -> Unit,
+    onExportReport: () -> Unit
 ) {
     TopAppBar(
         title = { Text("Takeoff Native", style = MaterialTheme.typography.titleMedium) },
@@ -62,6 +63,7 @@ fun TakeoffCommandBar(
                     )
                 }
                 if (hasMeasurements) {
+                    AssistChip(onClick = onExportReport, label = { Text("تصدير CSV") }, leadingIcon = { Icon(Icons.Default.FolderOpen, null) })
                     AssistChip(onClick = onUndo, label = { Text("تراجع") }, leadingIcon = { Icon(Icons.AutoMirrored.Filled.Undo, null) })
                     AssistChip(onClick = onClear, label = { Text("مسح") }, leadingIcon = { Icon(Icons.Default.DeleteSweep, null) })
                 }

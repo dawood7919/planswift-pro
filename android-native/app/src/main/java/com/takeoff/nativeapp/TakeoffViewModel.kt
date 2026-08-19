@@ -13,6 +13,7 @@ import com.takeoff.nativeapp.estimation.NativeTemplate
 import com.takeoff.nativeapp.estimation.TemplateKind
 import com.takeoff.nativeapp.measurement.MeasurementEngine
 import com.takeoff.nativeapp.measurement.PlanPoint
+import com.takeoff.nativeapp.report.NativeReportEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -146,6 +147,11 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
 
     fun selectTemplate(templateId: Long?) {
         _state.update { state -> state.copy(selectedTemplateId = templateId?.takeIf { id -> state.templates.any { it.id == id } }) }
+    }
+
+    fun exportReportCsv(): String {
+        val current = _state.value
+        return NativeReportEngine.toCsv(NativeReportEngine.rows(current.measurements, current.layers, current.templates, current.calibration))
     }
 
     fun applyCalibration() {

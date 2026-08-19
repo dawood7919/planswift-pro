@@ -46,6 +46,13 @@ class MainActivity : ComponentActivity() {
                         viewModel.openPdf(this, it, it.lastPathSegment ?: "مخطط PDF")
                     }
                 }
+                val reportExporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+                    uri?.let { destination ->
+                        contentResolver.openOutputStream(destination)?.bufferedWriter()?.use { writer ->
+                            writer.write(viewModel.exportReportCsv())
+                        }
+                    }
+                }
                 TakeoffNativeScreen(
                     state = state,
                     onOpenPlan = { filePicker.launch(arrayOf("application/pdf")) },
@@ -60,6 +67,7 @@ class MainActivity : ComponentActivity() {
                     onToggleLayer = viewModel::toggleLayer,
                     onAddTemplate = viewModel::addTemplate,
                     onSelectTemplate = viewModel::selectTemplate,
+                    onExportReport = { reportExporter.launch("takeoff-report.csv") },
                     onMotionEvent = viewModel::onMotionEvent
                 )
             }
@@ -82,6 +90,7 @@ private fun TakeoffNativeScreen(
     onToggleLayer: (Long) -> Unit,
     onAddTemplate: (String, String, String, com.takeoff.nativeapp.estimation.TemplateKind) -> Unit,
     onSelectTemplate: (Long?) -> Unit,
+    onExportReport: () -> Unit,
     onMotionEvent: (android.view.MotionEvent, com.takeoff.nativeapp.measurement.PlanPoint, androidx.compose.ui.geometry.Offset) -> Unit
 ) {
     Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFFF3F7F9)) {
@@ -93,7 +102,8 @@ private fun TakeoffNativeScreen(
                 onOpenPlan = onOpenPlan,
                 onToolSelected = onToolSelected,
                 onClear = onClear,
-                onUndo = onUndo
+                onUndo = onUndo,
+                onExportReport = onExportReport
             )
             BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(8.dp)) {
                 val inspector = @Composable {
