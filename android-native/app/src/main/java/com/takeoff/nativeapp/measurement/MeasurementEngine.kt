@@ -22,6 +22,13 @@ object MeasurementEngine {
         return kotlin.math.abs(signedArea) / 2.0
     }
 
+    fun areaWithCutouts(outer: List<PlanPoint>, cutouts: List<List<PlanPoint>>): Double {
+        val outerArea = polygonArea(outer)
+        val cutoutArea = cutouts.sumOf(::polygonArea)
+        require(cutoutArea <= outerArea) { "مساحة الفتحات لا يمكن أن تتجاوز المساحة الأساسية." }
+        return outerArea - cutoutArea
+    }
+
     fun scaleFactor(drawingDistance: Double, knownDistance: Double): Double? {
         if (!drawingDistance.isFinite() || !knownDistance.isFinite() || drawingDistance <= 0 || knownDistance <= 0) return null
         return knownDistance / drawingDistance

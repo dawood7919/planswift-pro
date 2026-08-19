@@ -35,4 +35,11 @@ class MeasurementEngineTest {
         assertEquals(11.1803398875, MeasurementEngine.roofArea(10.0, 1.0, 2.0), 0.00001)
         assertEquals(30.0, MeasurementEngine.volume(20.0, 1.5), 0.00001)
     }
+
+    @Test
+    fun `cutouts are subtracted from an outer polygon`() {
+        val outer = listOf(PlanPoint(0f, 0f), PlanPoint(10f, 0f), PlanPoint(10f, 10f), PlanPoint(0f, 10f))
+        val cutout = listOf(PlanPoint(2f, 2f), PlanPoint(4f, 2f), PlanPoint(4f, 4f), PlanPoint(2f, 4f))
+        assertEquals(96.0, MeasurementEngine.areaWithCutouts(outer, listOf(cutout)), 0.00001)
+    }
 }
