@@ -93,6 +93,7 @@ data class TakeoffUiState(
     val isRefreshingCloudProjects: Boolean = false,
     val isDownloadingCloudPdf: Boolean = false,
     val versions: List<NativeProjectVersion> = emptyList(),
+    val versionComparison: NativeVersionComparison? = null,
     val noteText: String = "",
     val project: NativeProject = NativeProject(id = 1L, name = "مشروع محلي جديد", pages = emptyList()),
     val activePageId: Long? = null,
@@ -389,6 +390,11 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
         persistVersions()
     }
 
+    fun compareProjectVersion(versionId: Long) {
+        val target = _state.value.versions.firstOrNull { it.id == versionId } ?: return
+        _state.update { it.copy(versionComparison = NativeVersionHistory.compare(workspaceFromState(), target), inputSource = "عُرضت فروق الإصدار ${target.label}") }
+    }
+
     fun restoreProjectVersion(versionId: Long) {
         val target = _state.value.versions.firstOrNull { it.id == versionId } ?: return
         val plan = NativeVersionHistory.prepareRestore(workspaceFromState(), target, nextVersionId++, System.currentTimeMillis())
@@ -407,6 +413,7 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
                 cutoutTargetId = null,
                 activePageId = workspace.project.pages.lastOrNull()?.id,
                 versions = (state.versions + plan.backup).takeLast(20),
+                versionComparison = null,
                 inputSource = "استُعيد الإصدار ${target.label} مع حفظ نسخة احتياطية تلقائية"
             )
         }

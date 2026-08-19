@@ -48,6 +48,7 @@ fun TakeoffInspector(
     onDownloadCloudPdf: (String, NativeCloudDocument) -> Unit,
     onClearCloudConnection: () -> Unit,
     onCreateVersion: (String) -> Unit,
+    onCompareVersion: (Long) -> Unit,
     onRestoreVersion: (Long) -> Unit,
     onApplyCalibration: () -> Unit,
     onDeleteMeasurement: (Long) -> Unit,
@@ -122,7 +123,14 @@ fun TakeoffInspector(
         OutlinedTextField(value = versionLabel, onValueChange = { versionLabel = it }, label = { Text("اسم لقطة الإصدار") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
         Button(onClick = { onCreateVersion(versionLabel); versionLabel = "" }, enabled = versionLabel.trim().isNotEmpty(), modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) { Text("حفظ لقطة") }
         state.versions.takeLast(8).reversed().forEach { version ->
-            Button(onClick = { onRestoreVersion(version.id) }, modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) { Text("استعادة: ${version.label}") }
+            androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
+                Button(onClick = { onCompareVersion(version.id) }, modifier = Modifier.weight(1f)) { Text("مقارنة: ${version.label}") }
+                Button(onClick = { onRestoreVersion(version.id) }) { Text("استعادة") }
+            }
+        }
+        state.versionComparison?.let { comparison ->
+            Text("فروق مع: ${comparison.referenceLabel} · ${comparison.totalChanges} تغيير", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
+            Text("قياسات: +${comparison.addedMeasurements} / -${comparison.removedMeasurements} / ~${comparison.changedMeasurements} · تعليقات: +${comparison.addedAnnotations} / -${comparison.removedAnnotations} / ~${comparison.changedAnnotations} · صفحات: ${comparison.changedPages}", style = MaterialTheme.typography.bodySmall)
         }
         Spacer(Modifier.height(12.dp))
         Text("الطبقات", style = MaterialTheme.typography.titleSmall)

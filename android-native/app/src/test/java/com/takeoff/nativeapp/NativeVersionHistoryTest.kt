@@ -20,6 +20,25 @@ class NativeVersionHistoryTest {
         assertTrue(plan.backup.createdAtEpochMillis > target.createdAtEpochMillis)
     }
 
+    @Test
+    fun `comparison reports deterministic measurement annotation and page deltas`() {
+        val reference = NativeVersionHistory.create(3L, "المرجع", workspace("مرجع", 11L), 100L)
+        val current = workspace("حالي", 12L).copy(
+            project = NativeProject(1L, "حالي", listOf(NativeProjectPage(1L, "مخطط محدّث"))),
+            measurements = listOf(NativeMeasurement(11L, MeasurementKind.LINEAR, listOf(PlanPoint(0f, 0f), PlanPoint(20f, 0f)), 20.0, 1L), NativeMeasurement(13L, MeasurementKind.COUNT, listOf(PlanPoint(4f, 4f)), 1.0, 1L)),
+            annotations = listOf(NativeAnnotation(1L, "ملاحظة جديدة", PlanPoint(2f, 2f)))
+        )
+
+        val comparison = NativeVersionHistory.compare(current, reference)
+
+        assertEquals("المرجع", comparison.referenceLabel)
+        assertEquals(1, comparison.addedMeasurements)
+        assertEquals(0, comparison.removedMeasurements)
+        assertEquals(1, comparison.changedMeasurements)
+        assertEquals(1, comparison.addedAnnotations)
+        assertEquals(1, comparison.changedPages)
+    }
+
     private fun workspace(name: String, measurementId: Long) = StoredWorkspace(
         project = NativeProject(1L, name, listOf(NativeProjectPage(1L, "المخطط"))),
         measurements = listOf(NativeMeasurement(measurementId, MeasurementKind.LINEAR, listOf(PlanPoint(0f, 0f), PlanPoint(10f, 0f)), 10.0, 1L)),
