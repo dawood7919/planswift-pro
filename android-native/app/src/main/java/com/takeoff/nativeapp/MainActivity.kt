@@ -58,6 +58,8 @@ class MainActivity : ComponentActivity() {
                     onAddLayer = viewModel::addLayer,
                     onSelectLayer = viewModel::selectLayer,
                     onToggleLayer = viewModel::toggleLayer,
+                    onAddTemplate = viewModel::addTemplate,
+                    onSelectTemplate = viewModel::selectTemplate,
                     onMotionEvent = viewModel::onMotionEvent
                 )
             }
@@ -78,6 +80,8 @@ private fun TakeoffNativeScreen(
     onAddLayer: (String) -> Unit,
     onSelectLayer: (Long) -> Unit,
     onToggleLayer: (Long) -> Unit,
+    onAddTemplate: (String, String, String, com.takeoff.nativeapp.estimation.TemplateKind) -> Unit,
+    onSelectTemplate: (Long?) -> Unit,
     onMotionEvent: (android.view.MotionEvent, com.takeoff.nativeapp.measurement.PlanPoint, androidx.compose.ui.geometry.Offset) -> Unit
 ) {
     Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFFF3F7F9)) {
@@ -101,6 +105,8 @@ private fun TakeoffNativeScreen(
                         onAddLayer = onAddLayer,
                         onSelectLayer = onSelectLayer,
                         onToggleLayer = onToggleLayer,
+                        onAddTemplate = onAddTemplate,
+                        onSelectTemplate = onSelectTemplate,
                         modifier = Modifier.fillMaxSize()
                     )
                 }

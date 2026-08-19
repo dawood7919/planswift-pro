@@ -2,6 +2,8 @@ package com.takeoff.nativeapp
 
 import android.content.Context
 import com.takeoff.nativeapp.measurement.PlanPoint
+import com.takeoff.nativeapp.estimation.NativeTemplate
+import com.takeoff.nativeapp.estimation.TemplateKind
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -10,7 +12,9 @@ data class StoredWorkspace(
     val measurements: List<NativeMeasurement>,
     val calibration: NativeCalibration?,
     val layers: List<NativeLayer>,
-    val selectedLayerId: Long
+    val selectedLayerId: Long,
+    val templates: List<NativeTemplate>,
+    val selectedTemplateId: Long?
 )
 
 class NativeProjectStore(context: Context) {
@@ -31,17 +35,22 @@ class NativeProjectStore(context: Context) {
             NativeLayer(layer.getLong("id"), layer.getString("name"), layer.getLong("color"), layer.optBoolean("visible", true))
         } ?: listOf(NativeLayer(1L, "قياسات عامة", 0xFF59C3F5))
         val selectedLayerId = root.optLong("selectedLayerId", layers.first().id)
+        val templates = root.optJSONArray("templates")?.toList { template ->
+            NativeTemplate(template.getLong("id"), TemplateKind.valueOf(template.getString("kind")), template.getString("name"), template.getString("unit"), template.getDouble("rate"))
+        } ?: emptyList()
+        val selectedTemplateId = root.optLong("selectedTemplateId", -1L).takeIf { id -> templates.any { it.id == id } }
         val measurements = root.getJSONArray("measurements").toList { measurement ->
             NativeMeasurement(
                 id = measurement.getLong("id"),
                 kind = MeasurementKind.valueOf(measurement.getString("kind")),
                 points = measurement.getJSONArray("points").toList { point -> PlanPoint(point.getDouble("x").toFloat(), point.getDouble("y").toFloat()) },
                 value = measurement.getDouble("value"),
-                layerId = measurement.optLong("layerId", selectedLayerId)
+                layerId = measurement.optLong("layerId", selectedLayerId),
+                templateId = measurement.optLong("templateId", -1L).takeIf { it >= 0 }
             )
         }
         val calibration = root.optJSONObject("calibration")?.let { NativeCalibration(it.getDouble("factor"), it.getString("unit")) }
-        StoredWorkspace(project, measurements, calibration, layers, selectedLayerId)
+        StoredWorkspace(project, measurements, calibration, layers, selectedLayerId, templates, selectedTemplateId)
     }.getOrNull()
 
     fun save(workspace: StoredWorkspace) {
@@ -49,6 +58,7 @@ class NativeProjectStore(context: Context) {
             .put("projectId", workspace.project.id)
             .put("projectName", workspace.project.name)
             .put("selectedLayerId", workspace.selectedLayerId)
+            .put("selectedTemplateId", workspace.selectedTemplateId ?: -1L)
             .put("pages", JSONArray().apply {
                 workspace.project.pages.forEach { page -> put(JSONObject().put("id", page.id).put("name", page.name).put("sourceUri", page.sourceUri ?: "")) }
             })
@@ -59,12 +69,16 @@ class NativeProjectStore(context: Context) {
                         .put("kind", measurement.kind.name)
                         .put("value", measurement.value)
                         .put("layerId", measurement.layerId)
+                        .put("templateId", measurement.templateId ?: -1L)
                         .put("points", JSONArray().apply { measurement.points.forEach { point -> put(JSONObject().put("x", point.x).put("y", point.y)) } })
                     )
                 }
             })
             .put("layers", JSONArray().apply {
                 workspace.layers.forEach { layer -> put(JSONObject().put("id", layer.id).put("name", layer.name).put("color", layer.color).put("visible", layer.visible)) }
+            })
+            .put("templates", JSONArray().apply {
+                workspace.templates.forEach { template -> put(JSONObject().put("id", template.id).put("kind", template.kind.name).put("name", template.name).put("unit", template.unit).put("rate", template.rate)) }
             })
         workspace.calibration?.let { root.put("calibration", JSONObject().put("factor", it.factor).put("unit", it.unit)) }
         preferences.edit().putString("workspace", root.toString()).apply()

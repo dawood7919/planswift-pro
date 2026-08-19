@@ -24,6 +24,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.takeoff.nativeapp.MeasurementKind
 import com.takeoff.nativeapp.TakeoffUiState
+import com.takeoff.nativeapp.estimation.EstimationEngine
+import com.takeoff.nativeapp.estimation.TemplateKind
 
 @Composable
 fun TakeoffInspector(
@@ -34,9 +36,14 @@ fun TakeoffInspector(
     onAddLayer: (String) -> Unit,
     onSelectLayer: (Long) -> Unit,
     onToggleLayer: (Long) -> Unit,
+    onAddTemplate: (String, String, String, TemplateKind) -> Unit,
+    onSelectTemplate: (Long?) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var newLayerName by rememberSaveable { mutableStateOf("") }
+    var newTemplateName by rememberSaveable { mutableStateOf("") }
+    var newTemplateUnit by rememberSaveable { mutableStateOf("وحدة") }
+    var newTemplateRate by rememberSaveable { mutableStateOf("0") }
     Column(modifier = modifier.background(Color(0xFFF9FCFE)).padding(10.dp)) {
         Text("المفتش", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(6.dp))
@@ -73,6 +80,21 @@ fun TakeoffInspector(
             }
         }
         Spacer(Modifier.height(12.dp))
+        Text("القوالب والتقدير", style = MaterialTheme.typography.titleSmall)
+        OutlinedTextField(value = newTemplateName, onValueChange = { newTemplateName = it }, label = { Text("اسم Part أو Assembly") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
+        OutlinedTextField(value = newTemplateUnit, onValueChange = { newTemplateUnit = it }, label = { Text("الوحدة") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
+        OutlinedTextField(value = newTemplateRate, onValueChange = { newTemplateRate = it }, label = { Text("سعر الوحدة") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
+        androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 4.dp)) {
+            Button(onClick = { onAddTemplate(newTemplateName, newTemplateUnit, newTemplateRate, TemplateKind.PART); newTemplateName = "" }, enabled = newTemplateName.trim().isNotEmpty()) { Text("Part") }
+            Button(onClick = { onAddTemplate(newTemplateName, newTemplateUnit, newTemplateRate, TemplateKind.ASSEMBLY); newTemplateName = "" }, enabled = newTemplateName.trim().isNotEmpty()) { Text("Assembly") }
+            Button(onClick = { onSelectTemplate(null) }, enabled = state.selectedTemplateId != null) { Text("يدوي") }
+        }
+        state.templates.forEach { template ->
+            Button(onClick = { onSelectTemplate(template.id) }, modifier = Modifier.fillMaxWidth().padding(top = 3.dp), enabled = state.selectedTemplateId != template.id) {
+                Text("${template.kind.name} · ${template.name} · ${template.rate}/${template.unit}")
+            }
+        }
+        Spacer(Modifier.height(12.dp))
         Text("المقياس", style = MaterialTheme.typography.titleSmall)
         Text(
             state.calibration?.let { "1 وحدة رسم = ${"%.5f".format(it.factor)} ${it.unit}" }
@@ -105,11 +127,18 @@ fun TakeoffInspector(
                     MeasurementKind.LINEAR -> if (scale != null && unit != null) "${"%.2f".format(measurement.value * scale)} $unit" else "${"%.2f".format(measurement.value)} وحدة رسم"
                     MeasurementKind.AREA -> if (scale != null && unit != null) "${"%.2f".format(measurement.value * scale * scale)} $unit²" else "${"%.2f".format(measurement.value)} وحدة² رسم"
                 }
+                val scaledQuantity = when (measurement.kind) {
+                    MeasurementKind.COUNT -> measurement.value
+                    MeasurementKind.LINEAR -> measurement.value * (scale ?: 1.0)
+                    MeasurementKind.AREA -> measurement.value * (scale ?: 1.0) * (scale ?: 1.0)
+                }
+                val estimatedCost = state.templates.firstOrNull { it.id == measurement.templateId }?.let { EstimationEngine.estimate(it, scaledQuantity).cost }
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(8.dp)) {
                         val layerName = state.layers.firstOrNull { it.id == measurement.layerId }?.name ?: "طبقة محذوفة"
                         Text("${measurement.kind.name} · $layerName", style = MaterialTheme.typography.labelSmall)
                         Text(value, style = MaterialTheme.typography.bodyMedium)
+                        estimatedCost?.let { Text("التكلفة: ${"%.2f".format(it)}", style = MaterialTheme.typography.bodySmall) }
                     }
                 }
             }

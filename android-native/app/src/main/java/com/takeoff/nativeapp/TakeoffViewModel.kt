@@ -9,6 +9,8 @@ import android.view.MotionEvent
 import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.takeoff.nativeapp.estimation.NativeTemplate
+import com.takeoff.nativeapp.estimation.TemplateKind
 import com.takeoff.nativeapp.measurement.MeasurementEngine
 import com.takeoff.nativeapp.measurement.PlanPoint
 import kotlinx.coroutines.Dispatchers
@@ -41,7 +43,8 @@ data class NativeMeasurement(
     val kind: MeasurementKind,
     val points: List<PlanPoint>,
     val value: Double,
-    val layerId: Long
+    val layerId: Long,
+    val templateId: Long? = null
 )
 
 data class NativeCalibration(val factor: Double, val unit: String)
@@ -59,6 +62,8 @@ data class TakeoffUiState(
     val calibration: NativeCalibration? = null,
     val layers: List<NativeLayer> = listOf(NativeLayer(1L, "قياسات عامة", 0xFF59C3F5)),
     val selectedLayerId: Long = 1L,
+    val templates: List<NativeTemplate> = emptyList(),
+    val selectedTemplateId: Long? = null,
     val measurements: List<NativeMeasurement> = emptyList(),
     val project: NativeProject = NativeProject(id = 1L, name = "مشروع محلي جديد", pages = emptyList()),
     val inputSource: String = "لم يبدأ إدخال",
@@ -77,13 +82,15 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
     private var nextMeasurementId = 1L
     private var nextPageId = 1L
     private var nextLayerId = 2L
+    private var nextTemplateId = 1L
 
     init {
         localStore.load()?.let { stored ->
-            _state.value = _state.value.copy(project = stored.project, measurements = stored.measurements, calibration = stored.calibration, layers = stored.layers, selectedLayerId = stored.selectedLayerId)
+            _state.value = _state.value.copy(project = stored.project, measurements = stored.measurements, calibration = stored.calibration, layers = stored.layers, selectedLayerId = stored.selectedLayerId, templates = stored.templates, selectedTemplateId = stored.selectedTemplateId)
             nextMeasurementId = (stored.measurements.maxOfOrNull { it.id } ?: 0L) + 1L
             nextPageId = (stored.project.pages.maxOfOrNull { it.id } ?: 0L) + 1L
             nextLayerId = (stored.layers.maxOfOrNull { it.id } ?: 0L) + 1L
+            nextTemplateId = (stored.templates.maxOfOrNull { it.id } ?: 0L) + 1L
         }
     }
 
@@ -125,6 +132,20 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
     fun toggleLayer(layerId: Long) {
         _state.update { state -> state.copy(layers = state.layers.map { if (it.id == layerId) it.copy(visible = !it.visible) else it }) }
         persistWorkspace()
+    }
+
+    fun addTemplate(name: String, unit: String, rateText: String, kind: TemplateKind) {
+        val normalizedName = name.trim().take(120)
+        val normalizedUnit = unit.trim().take(32)
+        val rate = rateText.toDoubleOrNull()
+        if (normalizedName.isEmpty() || normalizedUnit.isEmpty() || rate == null || !rate.isFinite() || rate < 0) return
+        val template = NativeTemplate(nextTemplateId++, kind, normalizedName, normalizedUnit, rate)
+        _state.update { it.copy(templates = it.templates + template, selectedTemplateId = template.id, inputSource = "اختير قالب $normalizedName") }
+        persistWorkspace()
+    }
+
+    fun selectTemplate(templateId: Long?) {
+        _state.update { state -> state.copy(selectedTemplateId = templateId?.takeIf { id -> state.templates.any { it.id == id } }) }
     }
 
     fun applyCalibration() {
@@ -273,7 +294,8 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
     }
 
     private fun commit(kind: MeasurementKind, points: List<PlanPoint>, value: Double) {
-        val measurement = NativeMeasurement(nextMeasurementId++, kind, points, value, _state.value.selectedLayerId)
+        val current = _state.value
+        val measurement = NativeMeasurement(nextMeasurementId++, kind, points, value, current.selectedLayerId, current.selectedTemplateId)
         _state.update { it.copy(measurements = it.measurements + measurement) }
         persistWorkspace()
     }
@@ -290,6 +312,6 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
 
     private fun persistWorkspace() {
         val current = _state.value
-        localStore.save(StoredWorkspace(current.project, current.measurements, current.calibration, current.layers, current.selectedLayerId))
+        localStore.save(StoredWorkspace(current.project, current.measurements, current.calibration, current.layers, current.selectedLayerId, current.templates, current.selectedTemplateId))
     }
 }
