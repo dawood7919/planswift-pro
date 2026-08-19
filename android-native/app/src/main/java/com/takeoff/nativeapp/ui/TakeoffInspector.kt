@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.takeoff.nativeapp.MeasurementKind
+import com.takeoff.nativeapp.NativeCloudDocument
 import com.takeoff.nativeapp.TakeoffUiState
 import com.takeoff.nativeapp.estimation.EstimationEngine
 import com.takeoff.nativeapp.estimation.CostKind
@@ -43,6 +44,8 @@ fun TakeoffInspector(
     onConnectCloud: (String, String) -> Unit,
     onRefreshCloudProjects: () -> Unit,
     onImportCloudProject: (String) -> Unit,
+    onLoadCloudDocuments: (String) -> Unit,
+    onDownloadCloudPdf: (String, NativeCloudDocument) -> Unit,
     onClearCloudConnection: () -> Unit,
     onCreateVersion: (String) -> Unit,
     onRestoreVersion: (Long) -> Unit,
@@ -104,8 +107,14 @@ fun TakeoffInspector(
         Text(state.cloudStatus, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 3.dp))
         state.cloudError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
         state.cloudProjects.take(8).forEach { project ->
-            Button(onClick = { onImportCloudProject(project.id) }, enabled = !state.isRefreshingCloudProjects, modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
-                Text("استيراد: ${project.name} · ${project.currency}")
+            androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
+                Button(onClick = { onImportCloudProject(project.id) }, enabled = !state.isRefreshingCloudProjects, modifier = Modifier.weight(1f)) { Text("استيراد: ${project.name}") }
+                Button(onClick = { onLoadCloudDocuments(project.id) }, enabled = !state.isRefreshingCloudProjects) { Text("PDF") }
+            }
+        }
+        if (state.cloudDocumentProjectId != null) state.cloudDocuments.forEach { document ->
+            Button(onClick = { onDownloadCloudPdf(state.cloudDocumentProjectId, document) }, enabled = !state.isDownloadingCloudPdf, modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
+                Text(if (state.isDownloadingCloudPdf) "جارٍ تنزيل PDF" else "تنزيل وفتح: ${document.originalName}")
             }
         }
         Spacer(Modifier.height(12.dp))

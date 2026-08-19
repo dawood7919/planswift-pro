@@ -5,6 +5,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
+import java.io.File
 import android.view.MotionEvent
 import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.AndroidViewModel
@@ -85,9 +86,12 @@ data class TakeoffUiState(
     val annotations: List<NativeAnnotation> = emptyList(),
     val cloudEndpoint: String = NativeConnectionStore.DEFAULT_ENDPOINT,
     val cloudProjects: List<NativeCloudProject> = emptyList(),
+    val cloudDocuments: List<NativeCloudDocument> = emptyList(),
+    val cloudDocumentProjectId: String? = null,
     val cloudStatus: String = "غير مرتبط بالمنصة",
     val cloudError: String? = null,
     val isRefreshingCloudProjects: Boolean = false,
+    val isDownloadingCloudPdf: Boolean = false,
     val versions: List<NativeProjectVersion> = emptyList(),
     val noteText: String = "",
     val project: NativeProject = NativeProject(id = 1L, name = "مشروع محلي جديد", pages = emptyList()),
@@ -335,6 +339,39 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
                 .onFailure { error ->
                     _state.update { it.copy(cloudStatus = "تعذر الاستيراد؛ بقيت مساحة العمل المحلية كما هي", cloudError = error.message ?: "تعذر تنزيل ملف المشروع.", isRefreshingCloudProjects = false) }
                 }
+        }
+    }
+
+    fun loadCloudDocuments(projectId: String) {
+        val connection = connectionStore.load()
+        if (connection == null || connection.isExpired()) {
+            _state.update { it.copy(cloudError = "اربط الجهاز برمز جديد قبل عرض وثائق PDF.") }
+            return
+        }
+        _state.update { it.copy(isRefreshingCloudProjects = true, cloudError = null, cloudStatus = "جارٍ تحميل وثائق PDF") }
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { cloudApi.listDocuments(connection, projectId) }
+                .onSuccess { documents -> _state.update { it.copy(cloudDocuments = documents, cloudDocumentProjectId = projectId, cloudStatus = "تتوفر ${documents.size} وثيقة PDF مملوكة", cloudError = null, isRefreshingCloudProjects = false) } }
+                .onFailure { error -> _state.update { it.copy(cloudStatus = "تعذر عرض الوثائق؛ بقيت النسخة المحلية كما هي", cloudError = error.message ?: "تعذر تحميل الوثائق.", isRefreshingCloudProjects = false) } }
+        }
+    }
+
+    fun downloadCloudPdf(projectId: String, document: NativeCloudDocument) {
+        val connection = connectionStore.load()
+        if (connection == null || connection.isExpired()) {
+            _state.update { it.copy(cloudError = "اربط الجهاز برمز جديد قبل تنزيل PDF.") }
+            return
+        }
+        _state.update { it.copy(isDownloadingCloudPdf = true, cloudError = null, cloudStatus = "جارٍ تنزيل ${document.originalName}") }
+        viewModelScope.launch(Dispatchers.IO) {
+            val safeName = document.originalName.replace(Regex("[^A-Za-z0-9._-]"), "_").take(120).ifBlank { "drawing.pdf" }
+            val destination = File(getApplication<Application>().filesDir, "cloud-pdf/${document.id}-$safeName")
+            runCatching { cloudApi.downloadPdf(connection, projectId, document.id, destination) }
+                .onSuccess { file ->
+                    _state.update { it.copy(cloudStatus = "حُفظ PDF محلياً ويجري فتحه", cloudError = null, isDownloadingCloudPdf = false) }
+                    openPdf(getApplication(), Uri.fromFile(file), document.originalName)
+                }
+                .onFailure { error -> _state.update { it.copy(cloudStatus = "تعذر تنزيل PDF؛ بقيت النسخة المحلية كما هي", cloudError = error.message ?: "تعذر تنزيل PDF.", isDownloadingCloudPdf = false) } }
         }
     }
 

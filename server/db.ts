@@ -157,6 +157,23 @@ export async function exportProjectFile(ownerId: number, projectId: string) {
   return stringifyProjectFile(file);
 }
 
+export async function listOwnedProjectDocuments(ownerId: number, projectId: string) {
+  const db = requireDb(await getDb());
+  const [project] = await db.select({ id: projects.id }).from(projects).where(and(eq(projects.id, projectId), eq(projects.ownerId, ownerId))).limit(1);
+  if (!project) throw new Error("PROJECT_NOT_FOUND");
+  return db.select({ id: projectDocuments.id, originalName: projectDocuments.originalName, byteSize: projectDocuments.byteSize, pageCount: projectDocuments.pageCount }).from(projectDocuments).where(eq(projectDocuments.projectId, projectId)).orderBy(desc(projectDocuments.createdAt));
+}
+
+export async function getOwnedProjectDocument(ownerId: number, projectId: string, documentId: string) {
+  const db = requireDb(await getDb());
+  const [document] = await db.select({ id: projectDocuments.id, storageKey: projectDocuments.storageKey, originalName: projectDocuments.originalName, mimeType: projectDocuments.mimeType }).from(projectDocuments)
+    .innerJoin(projects, eq(projects.id, projectDocuments.projectId))
+    .where(and(eq(projectDocuments.id, documentId), eq(projectDocuments.projectId, projectId), eq(projects.ownerId, ownerId)))
+    .limit(1);
+  if (!document) throw new Error("PROJECT_DOCUMENT_NOT_FOUND");
+  return document;
+}
+
 export async function importProjectFile(ownerId: number, file: TakeoffProjectFile) {
   const db = requireDb(await getDb());
   const projectId = nanoid(20);

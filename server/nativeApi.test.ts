@@ -23,4 +23,19 @@ describe("native API project summaries", () => {
       updatedAt: "2026-08-19T20:00:00.000Z",
     }]);
   });
+
+  it("does not expose storage keys in the Android project summary", () => {
+    const [project] = toNativeProjectSummaries([{
+      id: "project-000000000001",
+      name: "مشروع آمن",
+      clientName: null,
+      location: null,
+      currency: "SAR",
+      lengthUnit: "m",
+      updatedAt: new Date("2026-08-19T20:00:00.000Z"),
+    }]);
+
+    expect(project).not.toHaveProperty("storageKey");
+    expect(project).not.toHaveProperty("storageUrl");
+  });
 });
