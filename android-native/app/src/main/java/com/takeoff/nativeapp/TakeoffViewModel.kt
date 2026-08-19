@@ -73,6 +73,7 @@ data class TakeoffUiState(
     val selectedTemplateId: Long? = null,
     val multiplierInput: String = "1",
     val measurements: List<NativeMeasurement> = emptyList(),
+    val selectedMeasurementIds: Set<Long> = emptySet(),
     val project: NativeProject = NativeProject(id = 1L, name = "مشروع محلي جديد", pages = emptyList()),
     val activePageId: Long? = null,
     val inputSource: String = "لم يبدأ إدخال",
@@ -118,7 +119,7 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun deleteMeasurement(measurementId: Long) {
-        _state.update { current -> current.copy(measurements = current.measurements.filterNot { it.id == measurementId }) }
+        _state.update { current -> current.copy(measurements = current.measurements.filterNot { it.id == measurementId }, selectedMeasurementIds = current.selectedMeasurementIds - measurementId) }
         persistWorkspace()
     }
 
@@ -126,6 +127,28 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
         val source = _state.value.measurements.firstOrNull { it.id == measurementId } ?: return
         val copy = source.copy(id = nextMeasurementId++, points = source.points.map { point -> PlanPoint(point.x + 12f, point.y + 12f) })
         _state.update { it.copy(measurements = it.measurements + copy, inputSource = "نُسخ عنصر القياس بإزاحة واضحة") }
+        persistWorkspace()
+    }
+
+    fun toggleMeasurementSelection(measurementId: Long) {
+        _state.update { current ->
+            val selected = if (measurementId in current.selectedMeasurementIds) current.selectedMeasurementIds - measurementId else current.selectedMeasurementIds + measurementId
+            current.copy(selectedMeasurementIds = selected)
+        }
+    }
+
+    fun deleteSelectedMeasurements() {
+        val selected = _state.value.selectedMeasurementIds
+        if (selected.isEmpty()) return
+        _state.update { current -> current.copy(measurements = current.measurements.filterNot { it.id in selected }, selectedMeasurementIds = emptySet()) }
+        persistWorkspace()
+    }
+
+    fun duplicateSelectedMeasurements() {
+        val selected = _state.value.selectedMeasurementIds
+        if (selected.isEmpty()) return
+        val copies = _state.value.measurements.filter { it.id in selected }.map { source -> source.copy(id = nextMeasurementId++, points = source.points.map { point -> PlanPoint(point.x + 12f, point.y + 12f) }) }
+        _state.update { it.copy(measurements = it.measurements + copies, inputSource = "نُسخت مجموعة القياسات بإزاحة واضحة") }
         persistWorkspace()
     }
 

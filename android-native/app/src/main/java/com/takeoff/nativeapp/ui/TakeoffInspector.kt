@@ -39,6 +39,9 @@ fun TakeoffInspector(
     onApplyCalibration: () -> Unit,
     onDeleteMeasurement: (Long) -> Unit,
     onDuplicateMeasurement: (Long) -> Unit,
+    onToggleMeasurementSelection: (Long) -> Unit,
+    onDeleteSelectedMeasurements: () -> Unit,
+    onDuplicateSelectedMeasurements: () -> Unit,
     onAddLayer: (String) -> Unit,
     onSelectLayer: (Long) -> Unit,
     onToggleLayer: (Long) -> Unit,
@@ -136,6 +139,13 @@ fun TakeoffInspector(
         OutlinedTextField(value = state.multiplierInput, onValueChange = onMultiplierChange, label = { Text("عامل التكرار للعناصر الجديدة") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
         Spacer(Modifier.height(12.dp))
         Text("القياسات", style = MaterialTheme.typography.titleSmall)
+        if (state.selectedMeasurementIds.isNotEmpty()) {
+            Text("محدد: ${state.selectedMeasurementIds.size}", style = MaterialTheme.typography.bodySmall)
+            androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 4.dp)) {
+                Button(onClick = onDuplicateSelectedMeasurements) { Text("نسخ المجموعة") }
+                Button(onClick = onDeleteSelectedMeasurements) { Text("حذف المجموعة") }
+            }
+        }
         LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             items(state.measurements, key = { it.id }) { measurement ->
                 val scale = state.calibration?.factor
@@ -159,6 +169,7 @@ fun TakeoffInspector(
                         Text("$value × ${"%.2f".format(measurement.multiplier)}", style = MaterialTheme.typography.bodyMedium)
                         estimatedCost?.let { Text("التكلفة: ${"%.2f".format(it)}", style = MaterialTheme.typography.bodySmall) }
                         androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 4.dp)) {
+                            Button(onClick = { onToggleMeasurementSelection(measurement.id) }) { Text(if (measurement.id in state.selectedMeasurementIds) "إلغاء التحديد" else "تحديد") }
                             Button(onClick = { onDuplicateMeasurement(measurement.id) }) { Text("نسخ") }
                             Button(onClick = { onDeleteMeasurement(measurement.id) }) { Text("حذف") }
                         }
