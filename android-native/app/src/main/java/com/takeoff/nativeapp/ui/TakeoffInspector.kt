@@ -42,6 +42,7 @@ fun TakeoffInspector(
     onDeleteMeasurement: (Long) -> Unit,
     onDuplicateMeasurement: (Long) -> Unit,
     onToggleMeasurementSelection: (Long) -> Unit,
+    onSelectCutoutTarget: (Long) -> Unit,
     onDeleteSelectedMeasurements: () -> Unit,
     onDuplicateSelectedMeasurements: () -> Unit,
     onAddLayer: (String) -> Unit,
@@ -194,6 +195,7 @@ fun TakeoffInspector(
                         estimatedCost?.let { Text("التكلفة: ${"%.2f".format(it)}", style = MaterialTheme.typography.bodySmall) }
                         androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 4.dp)) {
                             Button(onClick = { onToggleMeasurementSelection(measurement.id) }) { Text(if (measurement.id in state.selectedMeasurementIds) "إلغاء التحديد" else "تحديد") }
+                            if (measurement.kind == MeasurementKind.AREA || measurement.kind == MeasurementKind.ROOF_AREA) Button(onClick = { onSelectCutoutTarget(measurement.id) }) { Text(if (measurement.id == state.cutoutTargetId) "هدف الفتحات" else "فتحـات") }
                             Button(onClick = { onDuplicateMeasurement(measurement.id) }) { Text("نسخ") }
                             Button(onClick = { onDeleteMeasurement(measurement.id) }) { Text("حذف") }
                         }

@@ -80,6 +80,7 @@ data class TakeoffUiState(
     val multiplierInput: String = "1",
     val measurements: List<NativeMeasurement> = emptyList(),
     val selectedMeasurementIds: Set<Long> = emptySet(),
+    val cutoutTargetId: Long? = null,
     val annotations: List<NativeAnnotation> = emptyList(),
     val noteText: String = "",
     val project: NativeProject = NativeProject(id = 1L, name = "مشروع محلي جديد", pages = emptyList()),
@@ -190,6 +191,13 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
 
     fun setNoteText(value: String) {
         _state.update { it.copy(noteText = value.take(400)) }
+    }
+
+    fun selectCutoutTarget(id: Long) {
+        _state.update { state ->
+            val eligible = state.measurements.any { it.id == id && it.kind in setOf(MeasurementKind.AREA, MeasurementKind.ROOF_AREA) }
+            if (eligible) state.copy(cutoutTargetId = id, inputSource = "اختيرت مساحة هدف للفتحات") else state.copy(inputSource = "الفتحات تتطلب مساحة أو سطحاً مائلاً")
+        }
     }
 
     fun addLayer(name: String) {
