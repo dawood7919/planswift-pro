@@ -88,6 +88,7 @@ data class TakeoffUiState(
     val cloudStatus: String = "غير مرتبط بالمنصة",
     val cloudError: String? = null,
     val isRefreshingCloudProjects: Boolean = false,
+    val versions: List<NativeProjectVersion> = emptyList(),
     val noteText: String = "",
     val project: NativeProject = NativeProject(id = 1L, name = "مشروع محلي جديد", pages = emptyList()),
     val activePageId: Long? = null,
@@ -112,10 +113,12 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
     private var nextTemplateId = 1L
     private var nextCostItemId = 1L
     private var nextAnnotationId = 1L
+    private var nextVersionId = 1L
 
     init {
+        val versions = localStore.loadVersions()
         localStore.load()?.let { stored ->
-            _state.value = _state.value.copy(project = stored.project, measurements = stored.measurements, calibration = stored.calibration, layers = stored.layers, selectedLayerId = stored.selectedLayerId, templates = stored.templates, selectedTemplateId = stored.selectedTemplateId, activePageId = stored.project.pages.lastOrNull()?.id, annotations = stored.annotations)
+            _state.value = _state.value.copy(project = stored.project, measurements = stored.measurements, calibration = stored.calibration, layers = stored.layers, selectedLayerId = stored.selectedLayerId, templates = stored.templates, selectedTemplateId = stored.selectedTemplateId, activePageId = stored.project.pages.lastOrNull()?.id, annotations = stored.annotations, versions = versions)
             nextMeasurementId = (stored.measurements.maxOfOrNull { it.id } ?: 0L) + 1L
             nextPageId = (stored.project.pages.maxOfOrNull { it.id } ?: 0L) + 1L
             nextLayerId = (stored.layers.maxOfOrNull { it.id } ?: 0L) + 1L
@@ -123,6 +126,8 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
             nextCostItemId = (stored.templates.flatMap { it.costItems }.maxOfOrNull { it.id } ?: 0L) + 1L
             nextAnnotationId = (stored.annotations.maxOfOrNull { it.id } ?: 0L) + 1L
         }
+        nextVersionId = (versions.maxOfOrNull { it.id } ?: 0L) + 1L
+        if (_state.value.versions.isEmpty() && versions.isNotEmpty()) _state.update { it.copy(versions = versions) }
         connectionStore.load()?.let { connection ->
             _state.update {
                 it.copy(
@@ -336,6 +341,42 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
     fun clearCloudConnection() {
         connectionStore.clear()
         _state.update { it.copy(cloudProjects = emptyList(), cloudStatus = "أُلغي ربط الجهاز", cloudError = null) }
+    }
+
+    fun createProjectVersion(label: String) {
+        val version = runCatching { NativeVersionHistory.create(nextVersionId++, label, workspaceFromState(), System.currentTimeMillis()) }.getOrElse { error ->
+            _state.update { it.copy(inputSource = error.message ?: "تعذر إنشاء الإصدار") }
+            return
+        }
+        _state.update { it.copy(versions = (it.versions + version).takeLast(20), inputSource = "حُفظ إصدار محلي: ${version.label}") }
+        persistVersions()
+    }
+
+    fun restoreProjectVersion(versionId: Long) {
+        val target = _state.value.versions.firstOrNull { it.id == versionId } ?: return
+        val plan = NativeVersionHistory.prepareRestore(workspaceFromState(), target, nextVersionId++, System.currentTimeMillis())
+        _state.update { state ->
+            val workspace = plan.restoredWorkspace
+            state.copy(
+                project = workspace.project,
+                measurements = workspace.measurements,
+                calibration = workspace.calibration,
+                layers = workspace.layers,
+                selectedLayerId = workspace.selectedLayerId,
+                templates = workspace.templates,
+                selectedTemplateId = workspace.selectedTemplateId,
+                annotations = workspace.annotations,
+                selectedMeasurementIds = emptySet(),
+                cutoutTargetId = null,
+                activePageId = workspace.project.pages.lastOrNull()?.id,
+                versions = (state.versions + plan.backup).takeLast(20),
+                inputSource = "استُعيد الإصدار ${target.label} مع حفظ نسخة احتياطية تلقائية"
+            )
+        }
+        nextMeasurementId = (_state.value.measurements.maxOfOrNull { it.id } ?: 0L) + 1L
+        nextPageId = (_state.value.project.pages.maxOfOrNull { it.id } ?: 0L) + 1L
+        persistWorkspace()
+        persistVersions()
     }
 
     fun selectCutoutTarget(id: Long) {
@@ -646,5 +687,12 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
     private fun persistWorkspace() {
         val current = _state.value
         localStore.save(StoredWorkspace(current.project, current.measurements, current.calibration, current.layers, current.selectedLayerId, current.templates, current.selectedTemplateId, current.annotations))
+    }
+
+    private fun persistVersions() { localStore.saveVersions(_state.value.versions) }
+
+    private fun workspaceFromState(): StoredWorkspace {
+        val current = _state.value
+        return StoredWorkspace(current.project, current.measurements, current.calibration, current.layers, current.selectedLayerId, current.templates, current.selectedTemplateId, current.annotations)
     }
 }

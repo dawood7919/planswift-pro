@@ -44,6 +44,8 @@ fun TakeoffInspector(
     onRefreshCloudProjects: () -> Unit,
     onImportCloudProject: (String) -> Unit,
     onClearCloudConnection: () -> Unit,
+    onCreateVersion: (String) -> Unit,
+    onRestoreVersion: (Long) -> Unit,
     onApplyCalibration: () -> Unit,
     onDeleteMeasurement: (Long) -> Unit,
     onDuplicateMeasurement: (Long) -> Unit,
@@ -70,6 +72,7 @@ fun TakeoffInspector(
     var newCostRate by rememberSaveable { mutableStateOf("0") }
     var newCostWaste by rememberSaveable { mutableStateOf("0") }
     var deviceToken by rememberSaveable { mutableStateOf("") }
+    var versionLabel by rememberSaveable { mutableStateOf("") }
     Column(modifier = modifier.background(Color(0xFFF9FCFE)).padding(10.dp)) {
         Text("المفتش", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(6.dp))
@@ -104,6 +107,13 @@ fun TakeoffInspector(
             Button(onClick = { onImportCloudProject(project.id) }, enabled = !state.isRefreshingCloudProjects, modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
                 Text("استيراد: ${project.name} · ${project.currency}")
             }
+        }
+        Spacer(Modifier.height(12.dp))
+        Text("الإصدارات المحلية", style = MaterialTheme.typography.titleSmall)
+        OutlinedTextField(value = versionLabel, onValueChange = { versionLabel = it }, label = { Text("اسم لقطة الإصدار") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
+        Button(onClick = { onCreateVersion(versionLabel); versionLabel = "" }, enabled = versionLabel.trim().isNotEmpty(), modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) { Text("حفظ لقطة") }
+        state.versions.takeLast(8).reversed().forEach { version ->
+            Button(onClick = { onRestoreVersion(version.id) }, modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) { Text("استعادة: ${version.label}") }
         }
         Spacer(Modifier.height(12.dp))
         Text("الطبقات", style = MaterialTheme.typography.titleSmall)

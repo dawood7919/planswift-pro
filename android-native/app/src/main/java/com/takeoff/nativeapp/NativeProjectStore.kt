@@ -25,7 +25,24 @@ class NativeProjectStore(context: Context) {
 
     fun load(): StoredWorkspace? = runCatching {
         val raw = preferences.getString("workspace", null) ?: return null
-        val root = JSONObject(raw)
+        workspaceFromJson(JSONObject(raw))
+    }.getOrNull()
+
+    fun loadVersions(): List<NativeProjectVersion> = runCatching {
+        val raw = preferences.getString("versions", "[]") ?: "[]"
+        val versions = JSONArray(raw)
+        versions.toList { version -> NativeProjectVersion(version.getLong("id"), version.getString("label"), version.getLong("createdAtEpochMillis"), workspaceFromJson(version.getJSONObject("workspace"))) }
+    }.getOrDefault(emptyList())
+
+    fun save(workspace: StoredWorkspace) {
+        preferences.edit().putString("workspace", workspaceToJson(workspace).toString()).apply()
+    }
+
+    fun saveVersions(versions: List<NativeProjectVersion>) {
+        preferences.edit().putString("versions", JSONArray().apply { versions.takeLast(20).forEach { version -> put(JSONObject().put("id", version.id).put("label", version.label).put("createdAtEpochMillis", version.createdAtEpochMillis).put("workspace", workspaceToJson(version.workspace))) } }.toString()).apply()
+    }
+
+    private fun workspaceFromJson(root: JSONObject): StoredWorkspace {
         val pages = root.getJSONArray("pages").toList { page ->
             NativeProjectPage(
                 id = page.getLong("id"),
@@ -59,11 +76,10 @@ class NativeProjectStore(context: Context) {
             )
         }
         val calibration = root.optJSONObject("calibration")?.let { NativeCalibration(it.getDouble("factor"), it.getString("unit")) }
-        StoredWorkspace(project, measurements, calibration, layers, selectedLayerId, templates, selectedTemplateId, annotations)
-    }.getOrNull()
+        return StoredWorkspace(project, measurements, calibration, layers, selectedLayerId, templates, selectedTemplateId, annotations)
+    }
 
-    fun save(workspace: StoredWorkspace) {
-        val root = JSONObject()
+    private fun workspaceToJson(workspace: StoredWorkspace): JSONObject = JSONObject()
             .put("projectId", workspace.project.id)
             .put("projectName", workspace.project.name)
             .put("selectedLayerId", workspace.selectedLayerId)
@@ -94,9 +110,7 @@ class NativeProjectStore(context: Context) {
                     template.costItems.forEach { item -> put(JSONObject().put("id", item.id).put("kind", item.kind.name).put("name", item.name).put("quantityFactor", item.quantityFactor).put("unit", item.unit).put("rate", item.rate).put("wastePercent", item.wastePercent)) }
                 })) }
             })
-        workspace.calibration?.let { root.put("calibration", JSONObject().put("factor", it.factor).put("unit", it.unit)) }
-        preferences.edit().putString("workspace", root.toString()).apply()
-    }
+            .also { root -> workspace.calibration?.let { root.put("calibration", JSONObject().put("factor", it.factor).put("unit", it.unit)) } }
 
     private fun <T> JSONArray.toList(mapper: (JSONObject) -> T): List<T> = buildList {
         for (index in 0 until length()) add(mapper(getJSONObject(index)))
