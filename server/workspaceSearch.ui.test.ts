@@ -113,7 +113,7 @@ describe("WorkspacePage search integration", () => {
     const annotationDown = createEvent.pointerDown(canvas, { pointerId: 1, pointerType: "mouse", button: 0 });
     Object.defineProperties(annotationDown, { clientX: { value: 320 }, clientY: { value: 180 } });
     fireEvent(canvas, annotationDown);
-    expect(mutation.mutate).toHaveBeenCalledWith(expect.objectContaining({ projectId: "project-1", pageId: "page-1", text: "تأكد من منسوب السقف", x: "320.0000", y: "180.0000", color: "#ff9c7b" }));
+    expect(mutation.mutate).toHaveBeenCalledWith(expect.objectContaining({ projectId: "project-1", pageId: "page-1", text: "تأكد من منسوب السقف", x: "320.0000", y: "180.0000", color: "var(--text)" }));
   });
 
   it("saves the selected reference document as a project review", async () => {
