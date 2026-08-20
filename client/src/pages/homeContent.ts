@@ -1,21 +1,21 @@
 export const toolCards = [
-  { icon: "area", title: "Area", eyebrow: "المساحات", description: "حوّل حدود المخططات إلى مساحات قابلة للتدقيق، مع القطع الداخلية والأقسام المتعددة." },
-  { icon: "linear", title: "Linear", eyebrow: "المسارات المتصلة", description: "التقط المسارات الخطية المتصلة بدقة، مع وحدات واضحة ومراجعة فورية للنتيجة." },
-  { icon: "segment", title: "Segment", eyebrow: "المقاطع المستقلة", description: "قِس العناصر المتقطعة من دون ربطٍ غير مقصود، واحتفظ بطول كل مقطع على حدة." },
-  { icon: "count", title: "Count", eyebrow: "العدّ المنظم", description: "ضع العلامات، راجعها، وحوّل العدد المعتمد إلى كمية منظمة جاهزة للتقدير." },
-  { icon: "estimate", title: "التقدير", eyebrow: "من الكمية إلى القرار", description: "اربط الكميات بالتجميعات والصيغ والأسعار ضمن سجل واضح وقابل للتفسير." },
+  { icon: "area", titleKey: "home.tool.area.title", eyebrowKey: "home.tool.area.eyebrow", descriptionKey: "home.tool.area.description" },
+  { icon: "linear", titleKey: "home.tool.linear.title", eyebrowKey: "home.tool.linear.eyebrow", descriptionKey: "home.tool.linear.description" },
+  { icon: "segment", titleKey: "home.tool.segment.title", eyebrowKey: "home.tool.segment.eyebrow", descriptionKey: "home.tool.segment.description" },
+  { icon: "count", titleKey: "home.tool.count.title", eyebrowKey: "home.tool.count.eyebrow", descriptionKey: "home.tool.count.description" },
+  { icon: "estimate", titleKey: "home.tool.estimate.title", eyebrowKey: "home.tool.estimate.eyebrow", descriptionKey: "home.tool.estimate.description" },
 ] as const;
 
 export const roadmap = [
-  { phase: "01", title: "MVP الحتمي", description: "PDF، المعايرة، Area، والحفظ الآمن." },
-  { phase: "02", title: "أدوات القياس", description: "Linear وSegment وCount مع التحرير والتراجع." },
-  { phase: "03", title: "التقدير والتقارير", description: "التجميعات والصيغ الآمنة ومخرجات قابلة للمراجعة." },
-  { phase: "04", title: "الإصدار الكامل", description: "المنصات، أدوات التخصص، والتكاملات الاختيارية." },
+  { phase: "01", titleKey: "home.roadmap.1.title", descriptionKey: "home.roadmap.1.description" },
+  { phase: "02", titleKey: "home.roadmap.2.title", descriptionKey: "home.roadmap.2.description" },
+  { phase: "03", titleKey: "home.roadmap.3.title", descriptionKey: "home.roadmap.3.description" },
+  { phase: "04", titleKey: "home.roadmap.4.title", descriptionKey: "home.roadmap.4.description" },
 ] as const;
 
 export const faqItems = [
-  { question: "هل المنصة مناسبة لرسومات PDF الكبيرة؟", answer: "صُممت البنية لعرض الصفحات على هيئة طبقات وTiles عند الحاجة، مع فصل الرسم عن محرك القياس حتى تبقى الكميات ثابتة وقابلة للمراجعة." },
-  { question: "ما أنظمة التشغيل المدعومة؟", answer: "تغطي الرؤية Windows وWeb/PWA وAndroid مع دعم تجربة قلم S Pen، مع تخصيص التفاعل لكل منصة مع مشاركة النواة الحسابية." },
-  { question: "كيف تُحمى الصيغ وبيانات المشروع؟", answer: "تُقيّم الصيغ ضمن لغة محدودة وآمنة، بينما تُحفظ المشاريع بسجل تغييرات وإصدارات قابلة للاسترداد بدلاً من تنفيذ كود غير موثوق." },
-  { question: "هل تحل الأتمتة محل المراجعة الهندسية؟", answer: "لا. تبقى النتائج المؤتمتة اقتراحات قابلة للقبول أو الرفض أو التعديل، ولا تدخل الكمية النهائية قبل اعتماد المستخدم." },
+  { questionKey: "home.faq.1.question", answerKey: "home.faq.1.answer" },
+  { questionKey: "home.faq.2.question", answerKey: "home.faq.2.answer" },
+  { questionKey: "home.faq.3.question", answerKey: "home.faq.3.answer" },
+  { questionKey: "home.faq.4.question", answerKey: "home.faq.4.answer" },
 ] as const;

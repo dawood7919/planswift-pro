@@ -123,18 +123,18 @@ export default function Home() {
 
         <section id="features" className="features-section section-wrap" aria-labelledby="features-title">
           <div className="section-head features-head">
-            <div><span className="section-kicker">01 / أدوات القياس</span><h2 id="features-title">كل نقطة محسوبة<br /><i>عن قصد.</i></h2></div>
-            <p>أدوات مستقلة في الدلالة، متحدة في الدقة. اختر نوع القياس الذي يطابق المخطط، ثم تتبع كل نتيجة حتى هندستها الأصلية.</p>
+            <div><span className="section-kicker">{t("home.featuresKicker")}</span><h2 id="features-title">{t("home.featuresTitle")}<br /><i>{t("home.featuresTitleEmphasis")}</i></h2></div>
+            <p>{t("home.featuresDescription")}</p>
           </div>
           <div className="features-grid">
             {toolCards.map((tool, index) => {
               const Icon = toolIcons[tool.icon];
               return (
-                <article className={`feature-card feature-card-${index + 1}`} key={tool.title}>
+                <article className={`feature-card feature-card-${index + 1}`} key={tool.titleKey}>
                   <div className="feature-topline"><span>{String(index + 1).padStart(2, "0")}</span><Icon size={22} strokeWidth={1.7} /></div>
-                  <span className="feature-eyebrow">{tool.eyebrow}</span>
-                  <h3>{tool.title}</h3>
-                  <p>{tool.description}</p>
+                  <span className="feature-eyebrow">{t(tool.eyebrowKey)}</span>
+                  <h3>{t(tool.titleKey)}</h3>
+                  <p>{t(tool.descriptionKey)}</p>
                   <span className="feature-arrow"><ArrowLeft size={17} /></span>
                 </article>
               );
@@ -144,38 +144,38 @@ export default function Home() {
 
         <section id="platforms" className="platforms-section" aria-labelledby="platforms-title">
           <div className="section-wrap platforms-layout">
-            <div className="platforms-intro"><span className="section-kicker">02 / المعمارية والمنصات</span><h2 id="platforms-title">نفس الحقيقة.<br /><i>تجربة مناسبة لكل منصة.</i></h2><p>تتشارك المنصات نواة الحساب والأوامر، بينما تحتفظ كل واجهة بلغتها الطبيعية في الإدخال والرسم والتنقل.</p></div>
+            <div className="platforms-intro"><span className="section-kicker">{t("home.platformsKicker")}</span><h2 id="platforms-title">{t("home.platformsTitle")}<br /><i>{t("home.platformsTitleEmphasis")}</i></h2><p>{t("home.platformsDescription")}</p></div>
             <div className="platform-stack">
-              <article className="platform-row"><span className="platform-number">A</span><Monitor size={27} /><div><h3>Windows</h3><p>لوحات كثيفة، اختصارات، وسياق عمل احترافي.</p></div><ArrowLeft size={18} /></article>
-              <article className="platform-row"><span className="platform-number">B</span><Globe2 size={27} /><div><h3>Web / PWA</h3><p>تجربة سريعة، وضع غير متصل، وإدخال موحد.</p></div><ArrowLeft size={18} /></article>
-              <article className="platform-row"><span className="platform-number">C</span><PenTool size={27} /><div><h3>Android / S Pen</h3><p>دقة القلم، لمس للتنقل، ومراجعة ميدانية.</p></div><ArrowLeft size={18} /></article>
+              <article className="platform-row"><span className="platform-number">A</span><Monitor size={27} /><div><h3>Windows</h3><p>{t("home.platformWindows")}</p></div><ArrowLeft size={18} /></article>
+              <article className="platform-row"><span className="platform-number">B</span><Globe2 size={27} /><div><h3>Web / PWA</h3><p>{t("home.platformWeb")}</p></div><ArrowLeft size={18} /></article>
+              <article className="platform-row"><span className="platform-number">C</span><PenTool size={27} /><div><h3>Android / S Pen</h3><p>{t("home.platformAndroid")}</p></div><ArrowLeft size={18} /></article>
             </div>
           </div>
         </section>
 
         <section id="roadmap" className="roadmap-section section-wrap" aria-labelledby="roadmap-title">
-          <div className="section-head roadmap-head"><div><span className="section-kicker">03 / خارطة الطريق</span><h2 id="roadmap-title">نبني الثقة<br /> <i>على مراحل.</i></h2></div><p>كل مرحلة تقفل طبقة من الدقة قبل الانتقال إلى التالية؛ لا اختصارات على حساب قابلية التحقق.</p></div>
+          <div className="section-head roadmap-head"><div><span className="section-kicker">{t("home.roadmapKicker")}</span><h2 id="roadmap-title">{t("home.roadmapTitle")}<br /> <i>{t("home.roadmapTitleEmphasis")}</i></h2></div><p>{t("home.roadmapDescription")}</p></div>
           <div className="roadmap-line" aria-hidden="true"><span /></div>
           <div className="roadmap-grid">
-            {roadmap.map((item: RoadmapItem, index: number) => <article className="roadmap-card" key={item.phase}><div className="roadmap-marker"><span>{item.phase}</span><i /></div><h3>{item.title}</h3><p>{item.description}</p><span className="roadmap-state">{index === 0 ? "نقطة البداية" : "طبقة تالية"}</span></article>)}
+            {roadmap.map((item: RoadmapItem, index: number) => <article className="roadmap-card" key={item.phase}><div className="roadmap-marker"><span>{item.phase}</span><i /></div><h3>{t(item.titleKey)}</h3><p>{t(item.descriptionKey)}</p><span className="roadmap-state">{index === 0 ? t("home.roadmapStart") : t("home.roadmapNext")}</span></article>)}
           </div>
         </section>
 
         <section id="technology" className="technology-section" aria-labelledby="technology-title">
           <div className="section-wrap tech-layout">
-            <div className="tech-copy"><span className="section-kicker section-kicker-light">04 / التقنية</span><h2 id="technology-title">هندسة لا<br /><i>تتخيل.</i></h2><p>النواة لا تعرف واجهة المستخدم؛ تعرف الإحداثيات والمقياس والوحدات والأوامر. لهذا تظل النتيجة نفسها، أينما فتحت المشروع.</p><a href="#faq" className="text-link">اقرأ مبادئ الأمان <ArrowLeft size={17} /></a></div>
+            <div className="tech-copy"><span className="section-kicker section-kicker-light">{t("home.technologyKicker")}</span><h2 id="technology-title">{t("home.technologyTitle")}<br /><i>{t("home.technologyTitleEmphasis")}</i></h2><p>{t("home.technologyDescription")}</p><a href="#faq" className="text-link">{t("home.securityPrinciples")} <ArrowLeft size={17} /></a></div>
             <div className="tech-cards">
-              <article><span className="tech-icon"><Cpu size={20} /></span><h3>نواة حتمية</h3><p>حساب واحد، نتائج قابلة للإعادة، وسجل أوامر واضح.</p></article>
-              <article><span className="tech-icon"><Network size={20} /></span><h3>محرك هندسة</h3><p>مقياس موثق، هندسة متجهية، والتقاط يشرح اختياراته.</p></article>
-              <article><span className="tech-icon"><ShieldCheck size={20} /></span><h3>صيغ آمنة</h3><p>وحدات وأنواع وتبعيات مضبوطة من دون تنفيذ غير موثوق.</p></article>
+              <article><span className="tech-icon"><Cpu size={20} /></span><h3>{t("home.techCoreTitle")}</h3><p>{t("home.techCoreDescription")}</p></article>
+              <article><span className="tech-icon"><Network size={20} /></span><h3>{t("home.techGeometryTitle")}</h3><p>{t("home.techGeometryDescription")}</p></article>
+              <article><span className="tech-icon"><ShieldCheck size={20} /></span><h3>{t("home.techFormulasTitle")}</h3><p>{t("home.techFormulasDescription")}</p></article>
             </div>
           </div>
         </section>
 
         <section id="faq" className="faq-section section-wrap" aria-labelledby="faq-title">
-          <div className="faq-aside"><span className="section-kicker">05 / الأسئلة الشائعة</span><h2 id="faq-title">أسئلة دقيقة.<br /><i>إجابات واضحة.</i></h2><p>كل قرار تقني في المنصة يبدأ من قابلية المراجعة، لا من اختصار الواجهة.</p><span className="faq-orb"><Sparkles size={20} /></span></div>
+          <div className="faq-aside"><span className="section-kicker">{t("home.faqKicker")}</span><h2 id="faq-title">{t("home.faqTitle")}<br /><i>{t("home.faqTitleEmphasis")}</i></h2><p>{t("home.faqDescription")}</p><span className="faq-orb"><Sparkles size={20} /></span></div>
           <div className="faq-list">
-            {faqItems.map((item: FaqItem, index: number) => <details key={item.question} open={index === 0}><summary><span>{item.question}</span><ChevronDown size={20} /></summary><p>{item.answer}</p></details>)}
+            {faqItems.map((item: FaqItem, index: number) => <details key={item.questionKey} open={index === 0}><summary><span>{t(item.questionKey)}</span><ChevronDown size={20} /></summary><p>{t(item.answerKey)}</p></details>)}
           </div>
         </section>
       </main>
