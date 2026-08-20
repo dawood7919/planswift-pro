@@ -35,13 +35,17 @@ export default function PdfPlanLayer({ url, pageNumber, page, viewport }: PdfPla
   const measured = isMeasuredViewport(viewport);
 
   // Rasterise at discrete steps so a continuous zoom gesture does not queue a render per frame.
-  const [rasterStep, setRasterStep] = useState(0);
+  const stepFor = (scale: number) => Math.round(Math.log2(scale) * 2);
+  // Seeded from the scale we are already at, so mounting rasterises once rather than
+  // painting at a placeholder step and immediately repainting at the real one.
+  const [rasterStep, setRasterStep] = useState(() => (measured ? stepFor(viewport.scale) : 0));
   useEffect(() => {
     if (!measured) return;
-    const step = Math.round(Math.log2(viewport.scale) * 2);
+    const step = stepFor(viewport.scale);
+    if (step === rasterStep) return;
     const timer = setTimeout(() => setRasterStep(step), RERENDER_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [measured, viewport.scale]);
+  }, [measured, viewport.scale, rasterStep]);
 
   useEffect(() => {
     if (!measured) return;

@@ -40,7 +40,7 @@ describe("PdfPlanLayer failure recovery", () => {
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({} as CanvasRenderingContext2D);
 
     const view = render(createElement(PdfPlanLayer, { url: "/valid.pdf", pageNumber: 2, page, viewport }));
-    await waitFor(() => expect(pageRender).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(pageRender).toHaveBeenCalled());
 
     const canvas = view.container.querySelector("canvas")!;
     // CSS size follows the viewport exactly, so the raster stays registered with the overlay.
@@ -55,5 +55,23 @@ describe("PdfPlanLayer failure recovery", () => {
     const unmeasured = createPageViewport(page, { width: 0, height: 0 }, 1, { x: 0, y: 0 });
     render(createElement(PdfPlanLayer, { url: "/valid.pdf", pageNumber: 1, page, viewport: unmeasured }));
     expect(pdfMocks.getDocument).not.toHaveBeenCalled();
+  });
+
+  it("rasterises once on mount instead of repainting at the real scale", async () => {
+    const pageRender = vi.fn(() => ({ promise: Promise.resolve(), cancel: vi.fn() }));
+    pdfMocks.getDocument.mockImplementation(() => ({
+      promise: Promise.resolve({
+        getPage: vi.fn(() => Promise.resolve({ getViewport: vi.fn(({ scale }: { scale: number }) => ({ width: page.width * scale, height: page.height * scale })), render: pageRender, cleanup: vi.fn() })),
+        cleanup: vi.fn(),
+      }),
+      destroy: vi.fn(),
+    }));
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({} as CanvasRenderingContext2D);
+
+    render(createElement(PdfPlanLayer, { url: "/valid.pdf", pageNumber: 1, page, viewport }));
+    await waitFor(() => expect(pageRender).toHaveBeenCalled());
+    // Long enough that a debounced second rasterisation would have landed.
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    expect(pageRender).toHaveBeenCalledTimes(1);
   });
 });
