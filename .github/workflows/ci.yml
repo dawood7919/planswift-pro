@@ -45,3 +45,30 @@ jobs:
           path: android-native/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+
+  # Publishes the debug APK as a rolling prerelease so it has a stable, directly
+  # downloadable URL. Runs only when a build is requested by hand.
+  publish-apk:
+    if: github.event_name == 'workflow_dispatch'
+    needs: verify-android
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: takeoff-native-debug-apk
+          path: apk
+      - name: Publish rolling debug release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mv apk/app-debug.apk apk/takeoff-android-debug.apk
+          gh release delete android-debug --yes --cleanup-tag || true
+          gh release create android-debug apk/takeoff-android-debug.apk \
+            --target "$GITHUB_SHA" \
+            --title "Takeoff Android — debug build" \
+            --notes "بناء تصحيح غير موقّع من الفرع ${GITHUB_REF_NAME} عند ${GITHUB_SHA}. للتجربة فقط، وليس للنشر على المتجر." \
+            --prerelease
+
