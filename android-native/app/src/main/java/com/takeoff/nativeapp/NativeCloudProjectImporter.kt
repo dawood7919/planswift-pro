@@ -44,7 +44,9 @@ object NativeCloudProjectImporter {
 
     private fun parse(source: String): CloudProjectFileData {
         val root = JSONObject(source)
-        require(root.optString("format") == "takeoff-project" && root.optInt("version") == 1) { "تنسيق ملف المشروع غير مدعوم." }
+        // Version 2 added page dimensions and a coordinate space. Both versions carry the
+        // same geometry shape, so an older export still imports.
+        require(root.optString("format") == "takeoff-project" && root.optInt("version") in SUPPORTED_VERSIONS) { "تنسيق ملف المشروع غير مدعوم." }
         val projectName = root.getJSONObject("project").getString("name")
         val pages = root.getJSONArray("pages").toCloudPages()
         val items = root.getJSONArray("items").toCloudItems()
@@ -156,6 +158,8 @@ object NativeCloudProjectImporter {
     }
 
     private const val DEFAULT_LAYER_ID = 1L
+    private val SUPPORTED_VERSIONS = 1..2
+
     private const val MAX_PROJECT_FILE_BYTES = 5_000_000
     private const val MAX_PAGES = 100
     private const val MAX_ITEMS = 10_000

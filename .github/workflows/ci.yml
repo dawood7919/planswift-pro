@@ -2,9 +2,11 @@ name: تحقق وبناء Takeoff
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'claude/**']
   pull_request:
     branches: [main]
+  # Lets a build be requested on demand, so an APK can be produced from any branch.
+  workflow_dispatch:
 
 permissions:
   contents: read
