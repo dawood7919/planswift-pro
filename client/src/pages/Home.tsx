@@ -29,11 +29,11 @@ type RoadmapItem = (typeof roadmap)[number];
 type FaqItem = (typeof faqItems)[number];
 
 const navItems = [
-  { label: "الميزات", href: "#features" },
-  { label: "المنصات", href: "#platforms" },
-  { label: "خارطة الطريق", href: "#roadmap" },
-  { label: "التقنية", href: "#technology" },
-  { label: "الأسئلة الشائعة", href: "#faq" },
+  { labelKey: "home.navFeatures" as const, href: "#features" },
+  { labelKey: "home.navPlatforms" as const, href: "#platforms" },
+  { labelKey: "home.navRoadmap" as const, href: "#roadmap" },
+  { labelKey: "home.navTechnology" as const, href: "#technology" },
+  { labelKey: "home.navFaq" as const, href: "#faq" },
 ];
 
 const toolIcons = {
@@ -45,7 +45,7 @@ const toolIcons = {
 };
 
 export default function Home() {
-  const { direction } = useTranslation();
+  const { direction, t } = useTranslation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const closeMenu = () => setMobileMenuOpen(false);
@@ -53,24 +53,24 @@ export default function Home() {
   return (
     <div className="landing-shell" dir={direction}>
       <header className="site-header">
-        <nav className="nav-wrap" aria-label="التنقل الرئيسي">
-          <a href="#top" className="brand" aria-label="Takeoff Platform، الصفحة الرئيسية">
+          <nav className="nav-wrap" aria-label={t("home.navigationLabel")}>
+          <a href="#top" className="brand" aria-label={t("home.homeLink")}>
             <span className="brand-mark" aria-hidden="true"><span /></span>
             <span>Takeoff<span className="brand-dot">.</span></span>
           </a>
 
           <div className="desktop-nav">
-            {navItems.map((item) => <a key={item.href} href={item.href}>{item.label}</a>)}
+            {navItems.map((item) => <a key={item.href} href={item.href}>{t(item.labelKey)}</a>)}
           </div>
 
           <Link className="nav-cta" href="/projects">
-            فتح التطبيق <ArrowLeft size={16} strokeWidth={2.3} />
+            {t("home.openApp")} <ArrowLeft size={16} strokeWidth={2.3} />
           </Link>
 
           <button
             className="mobile-menu-button"
             type="button"
-            aria-label={mobileMenuOpen ? "إغلاق القائمة" : "فتح القائمة"}
+            aria-label={mobileMenuOpen ? t("home.closeMenu") : t("home.openMenu")}
             aria-expanded={mobileMenuOpen}
             onClick={() => setMobileMenuOpen((open) => !open)}
           >
@@ -79,9 +79,9 @@ export default function Home() {
         </nav>
 
         {mobileMenuOpen && (
-          <div className="mobile-nav" aria-label="روابط التنقل">
-            {navItems.map((item) => <a key={item.href} href={item.href} onClick={closeMenu}>{item.label}</a>)}
-            <Link href="/projects" className="mobile-nav-cta" onClick={closeMenu}>فتح التطبيق <ArrowLeft size={16} /></Link>
+          <div className="mobile-nav" aria-label={t("home.navigationLinks")}>
+            {navItems.map((item) => <a key={item.href} href={item.href} onClick={closeMenu}>{t(item.labelKey)}</a>)}
+            <Link href="/projects" className="mobile-nav-cta" onClick={closeMenu}>{t("home.openApp")} <ArrowLeft size={16} /></Link>
           </div>
         )}
       </header>
@@ -90,16 +90,16 @@ export default function Home() {
         <section className="hero-section" aria-labelledby="hero-title">
           <div className="hero-grid">
             <div className="hero-copy">
-              <div className="eyebrow"><span className="signal-dot" />منصة هندسية مستقلة</div>
-              <h1 id="hero-title">القياس الذي <em>يثق</em><br />به فريقك.</h1>
-              <p className="hero-description">من المخطط إلى قرار التكلفة؛ مساحة دقيقة، هندسة شفافة، وتقدير يمكن العودة إلى مصدره دائماً.</p>
+              <div className="eyebrow"><span className="signal-dot" />{t("home.heroEyebrow")}</div>
+              <h1 id="hero-title">{t("home.heroTitleBefore")} <em>{t("home.heroTitleEmphasis")}</em><br />{t("home.heroTitleAfter")}</h1>
+              <p className="hero-description">{t("home.heroDescription")}</p>
               <div className="hero-actions">
-                <Link href="/projects" className="primary-button">ابدأ مشروع قياس <ArrowLeft size={18} /></Link>
-                <span className="hero-note"><Check size={16} />نتائج قابلة للتدقيق</span>
+                <Link href="/projects" className="primary-button">{t("home.startProject")} <ArrowLeft size={18} /></Link>
+                <span className="hero-note"><Check size={16} />{t("home.auditableResults")}</span>
               </div>
             </div>
 
-            <div className="blueprint-stage" aria-label="رسم توضيحي لمخطط هندسي" role="img">
+            <div className="blueprint-stage" aria-label={t("home.blueprintLabel")} role="img">
               <div className="stage-ruler stage-ruler-top"><span>0</span><span>50</span><span>100</span></div>
               <div className="stage-ruler stage-ruler-side"><span>100</span><span>50</span><span>0</span></div>
               <div className="drawing-grid" />
@@ -118,7 +118,7 @@ export default function Home() {
               <div className="stage-caption"><span>DRAWING SPACE</span><span>REV 01 / 2026</span></div>
             </div>
           </div>
-          <div className="hero-footnote"><span>01</span><div /><p>نواة واحدة. ثلاث منصات. مصدر واحد للحقيقة.</p></div>
+          <div className="hero-footnote"><span>01</span><div /><p>{t("home.oneCore")}</p></div>
         </section>
 
         <section id="features" className="features-section section-wrap" aria-labelledby="features-title">

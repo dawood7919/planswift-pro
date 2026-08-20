@@ -77,22 +77,22 @@ type CanvasSnapshot = { items: Item[]; calibration: CalibrationScale | null };
 type VertexTarget = { itemId: string; ringIndex: number | null; pointIndex: number };
 type PendingCommand = { type: string; payloadJson: string };
 
-const toolOptions: Array<{ tool: Tool; label: string; icon: typeof Ruler; hint: string }> = [
-  { tool: "SELECT", label: "تحديد", icon: MousePointer2, hint: "اختيار عنصر" },
-  { tool: "PAN", label: "تحريك", icon: Hand, hint: "سحب مساحة الرسم" },
-  { tool: "CALIBRATE", label: "معايرة", icon: Ruler, hint: "نقطتان + بعد معروف" },
-  { tool: "ANNOTATE", label: "ملاحظة", icon: Pencil, hint: "ضع ملاحظة نصية" },
-  { tool: "AREA", label: "Area", icon: SquareDashed, hint: "مساحة متعددة الرؤوس" },
-  { tool: "ROOF_AREA", label: "Roof", icon: SquareDashed, hint: "مساحة سقف مع ميل" },
-  { tool: "VOLUME", label: "Volume", icon: SquareDashed, hint: "حجم من مساحة وعمق" },
-  { tool: "ADD_HOLE", label: "Cutout", icon: Minus, hint: "طرح منطقة داخل Area محددة" },
-  { tool: "LINEAR", label: "Linear", icon: LineChart, hint: "مسار متصل" },
-  { tool: "SEGMENT", label: "Segment", icon: Move, hint: "مقاطع مستقلة" },
-  { tool: "COUNT", label: "Count", icon: Hash, hint: "علامات مستقلة" },
+const toolOptions: Array<{ tool: Tool; labelKey: TranslationKey; icon: typeof Ruler; hintKey: TranslationKey }> = [
+  { tool: "SELECT", labelKey: "workspace.tool.select", icon: MousePointer2, hintKey: "workspace.toolHint.select" },
+  { tool: "PAN", labelKey: "workspace.tool.pan", icon: Hand, hintKey: "workspace.toolHint.pan" },
+  { tool: "CALIBRATE", labelKey: "workspace.tool.calibrate", icon: Ruler, hintKey: "workspace.toolHint.calibrate" },
+  { tool: "ANNOTATE", labelKey: "workspace.tool.annotate", icon: Pencil, hintKey: "workspace.toolHint.annotate" },
+  { tool: "AREA", labelKey: "workspace.tool.area", icon: SquareDashed, hintKey: "workspace.toolHint.area" },
+  { tool: "ROOF_AREA", labelKey: "workspace.tool.roofArea", icon: SquareDashed, hintKey: "workspace.toolHint.roofArea" },
+  { tool: "VOLUME", labelKey: "workspace.tool.volume", icon: SquareDashed, hintKey: "workspace.toolHint.volume" },
+  { tool: "ADD_HOLE", labelKey: "workspace.tool.cutout", icon: Minus, hintKey: "workspace.toolHint.cutout" },
+  { tool: "LINEAR", labelKey: "workspace.tool.linear", icon: LineChart, hintKey: "workspace.toolHint.linear" },
+  { tool: "SEGMENT", labelKey: "workspace.tool.segment", icon: Move, hintKey: "workspace.toolHint.segment" },
+  { tool: "COUNT", labelKey: "workspace.tool.count", icon: Hash, hintKey: "workspace.toolHint.count" },
 ];
 
 const colors: Record<MeasurementKind, string> = { AREA: "var(--area)", ROOF_AREA: "var(--roof-area)", VOLUME: "var(--volume)", LINEAR: "var(--linear)", SEGMENT: "var(--segment)", COUNT: "var(--count)" };
-const names: Record<MeasurementKind, string> = { AREA: "مساحة جديدة", ROOF_AREA: "مساحة سقف", VOLUME: "حجم جديد", LINEAR: "مسار خطي", SEGMENT: "مقاطع مستقلة", COUNT: "علامات عد" };
+const measurementNameKeys: Record<MeasurementKind, TranslationKey> = { AREA: "workspace.measurementName.area", ROOF_AREA: "workspace.measurementName.roofArea", VOLUME: "workspace.measurementName.volume", LINEAR: "workspace.measurementName.linear", SEGMENT: "workspace.measurementName.segment", COUNT: "workspace.measurementName.count" };
 const isAreaKind = (kind: MeasurementKind): kind is "AREA" | "ROOF_AREA" | "VOLUME" => ["AREA", "ROOF_AREA", "VOLUME"].includes(kind);
 
 function createId() {
@@ -109,6 +109,7 @@ function parseStoredItem(item: { id: string; pageId: string; kind: MeasurementKi
 
 export default function WorkspacePage() {
   const { t, locale, direction, unitSystem, setLocale, setUnitSystem } = useTranslation();
+  const localizedToolOptions = toolOptions.map((option) => ({ ...option, label: t(option.labelKey), hint: t(option.hintKey) }));
   const [, params] = useRoute<{ projectId: string }>("/workspace/:projectId");
   const [, setLocation] = useLocation();
   const projectId = params?.projectId;
@@ -380,7 +381,7 @@ export default function WorkspacePage() {
       id: createId(),
       pageId: page?.id ?? "",
       kind,
-      name: `${names[kind]} ${pageItems.filter((existing) => existing.kind === kind).length + 1}`,
+      name: `${t(measurementNameKeys[kind])} ${pageItems.filter((existing) => existing.kind === kind).length + 1}`,
       color: colors[kind],
       geometry,
       rate: "0",
@@ -668,7 +669,7 @@ export default function WorkspacePage() {
   function duplicateSelected() {
     if (!selected) return;
     pushHistory();
-    const copy = { ...selected, id: createId(), name: nextCopyName(selected.name, pageItems.map((item) => item.name)), geometry: structuredClone(selected.geometry) };
+    const copy = { ...selected, id: createId(), name: nextCopyName(selected.name, pageItems.map((item) => item.name), { fallback: t("workspace.measurementName.fallback"), copy: t("workspace.measurementName.copy") }), geometry: structuredClone(selected.geometry) };
     recordCommand("DUPLICATE_TAKEOFF", { sourceId: selected.id, itemId: copy.id });
     setItems((current) => [...current, copy]);
     setSelectedId(copy.id);
@@ -690,7 +691,7 @@ export default function WorkspacePage() {
     pushHistory();
     const usedNames = new Set(pageItems.map((item) => item.name));
     const copies = selectedItems.map((item) => {
-      const name = nextCopyName(item.name, usedNames);
+      const name = nextCopyName(item.name, usedNames, { fallback: t("workspace.measurementName.fallback"), copy: t("workspace.measurementName.copy") });
       usedNames.add(name);
       return { ...item, id: createId(), name, geometry: structuredClone(item.geometry) };
     });
@@ -793,7 +794,7 @@ export default function WorkspacePage() {
   if (workspaceQuery.isLoading) return <div className="workspace-loading">جارٍ فتح مساحة العمل…</div>;
   if (!workspaceQuery.data || !page) return <div className="workspace-loading">تعذر فتح هذا المشروع. عد إلى قائمة المشاريع واختر مشروعاً صالحاً.</div>;
 
-  const activeTool = toolOptions.find((option) => option.tool === tool);
+  const activeTool = localizedToolOptions.find((option) => option.tool === tool);
   const preview = (["AREA", "ROOF_AREA", "VOLUME", "LINEAR"] as Tool[]).includes(tool) ? [...draftPoints, ...(hoverPoint ? [hoverPoint] : [])] : [];
   const selectedReportRow = selected ? reportRows.find((row) => row.id === selected.id) : undefined;
   const selectedCost = selectedReportRow?.cost ?? null;
@@ -833,7 +834,7 @@ export default function WorkspacePage() {
         </aside>
         <aside className="tool-rail" aria-label="أدوات القياس">
           <span className="rail-label">أدوات</span>
-          {toolOptions.map((option) => { const Icon = option.icon; return <button key={option.tool} className={`tool-button ${tool === option.tool ? "active" : ""}`} title={option.hint} onClick={() => { setTool(option.tool); setDraftPoints([]); setCalibrationPoints([]); }}><Icon size={19} /><span>{option.label}</span></button>; })}
+          {localizedToolOptions.map((option) => { const Icon = option.icon; return <button key={option.tool} className={`tool-button ${tool === option.tool ? "active" : ""}`} title={option.hint} onClick={() => { setTool(option.tool); setDraftPoints([]); setCalibrationPoints([]); }}><Icon size={19} /><span>{option.label}</span></button>; })}
           <div className="tool-divider" />
           <button className="tool-button" title="إنهاء الرسم" onClick={finishTool} disabled={!(["AREA", "ROOF_AREA", "VOLUME", "LINEAR", "COUNT", "ADD_HOLE"] as Tool[]).includes(tool)}><Check size={19} /><span>إنهاء</span></button>
           <button className="tool-button" title="إلغاء الرسم الحالي" onClick={() => { setDraftPoints([]); setCalibrationPoints([]); setTool("SELECT"); }}><X size={19} /><span>إلغاء</span></button>

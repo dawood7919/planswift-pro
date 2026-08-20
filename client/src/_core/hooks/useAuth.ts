@@ -69,7 +69,7 @@ export function useAuth(options?: UseAuthOptions) {
     try {
       localStorage.setItem("manus-runtime-user-info", JSON.stringify(meQuery.data));
     } catch {
-      // قد تمنع نافذة خاصة أو تضمين مقيّد التخزين المحلي؛ المصادقة نفسها لا تعتمد عليه.
+      // Restricted embeds or private windows can block local storage; authentication itself does not depend on it.
     }
   }, [meQuery.data]);
 

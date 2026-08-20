@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import type { PageSize, PageViewport } from "@shared/takeoff-core/viewport";
+import { useTranslation } from "@/i18n";
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
@@ -49,5 +50,6 @@ function ReviewCanvas({ layer, pageSize, viewport }: { layer: PdfLayer; pageSize
 }
 
 export default function PdfReviewOverlay({ reference, current, viewport, currentPageSize, referencePageSize }: PdfReviewOverlayProps) {
-  return <div className="pdf-review-overlay" aria-label="مراجعة اختلاف الوثيقتين"><ReviewCanvas layer={reference} pageSize={referencePageSize} viewport={viewport} /><ReviewCanvas layer={current} pageSize={currentPageSize} viewport={viewport} /><div className="pdf-review-legend"><span className="reference">النسخة المرجعية</span><span className="current">النسخة الحالية</span></div></div>;
+  const { t } = useTranslation();
+  return <div className="pdf-review-overlay" aria-label={t("review.overlayLabel")}><ReviewCanvas layer={reference} pageSize={referencePageSize} viewport={viewport} /><ReviewCanvas layer={current} pageSize={currentPageSize} viewport={viewport} /><div className="pdf-review-legend"><span className="reference">{t("review.reference")}</span><span className="current">{t("review.current")}</span></div></div>;
 }
