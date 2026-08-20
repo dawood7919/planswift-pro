@@ -1,6 +1,6 @@
 export type FormulaVariables = Record<string, number>;
 export const TEMPLATE_FORMULA_VARIABLES = ["quantity", "rate", "waste"] as const;
-export type FormulaDiagnostic = { valid: boolean; code: string | null; message: string; variables: string[] };
+export type FormulaDiagnostic = { valid: boolean; code: string | null; variables: string[] };
 
 type Token = { type: "NUMBER" | "IDENTIFIER" | "OPERATOR" | "LEFT_PAREN" | "RIGHT_PAREN" | "END"; value?: string };
 
@@ -77,27 +77,15 @@ export function evaluateFormula(formula: string, variables: FormulaVariables): n
   return result;
 }
 
-const formulaMessages: Record<string, string> = {
-  FORMULA_LENGTH_INVALID: "يجب أن يتراوح طول الصيغة بين 1 و500 حرف.",
-  FORMULA_TOO_COMPLEX: "الصيغة معقدة أكثر من الحد المسموح.",
-  FORMULA_TOKEN_INVALID: "تحتوي الصيغة على رمز غير مسموح.",
-  FORMULA_VARIABLE_UNKNOWN: "تحتوي الصيغة على متغير غير مسموح.",
-  FORMULA_PARENTHESIS_INVALID: "الأقواس في الصيغة غير متطابقة.",
-  FORMULA_EXPRESSION_INVALID: "بنية الصيغة غير مكتملة.",
-  FORMULA_DIVISION_BY_ZERO: "لا يمكن القسمة على صفر.",
-  FORMULA_TRAILING_TOKENS: "تحتوي الصيغة على جزء غير قابل للقراءة.",
-  FORMULA_RESULT_INVALID: "نتيجة الصيغة غير صالحة.",
-};
-
-/** Parses a formula without executing code and exposes UI-safe diagnostics for template authoring. */
+/** Parses a formula without executing code and exposes locale-neutral diagnostics for template authoring. */
 export function inspectFormula(formula: string): FormulaDiagnostic {
   try {
     const variables = Array.from(new Set(tokenize(formula).filter((token) => token.type === "IDENTIFIER").map((token) => token.value!)));
-    if (variables.some((variable) => !(TEMPLATE_FORMULA_VARIABLES as readonly string[]).includes(variable))) return { valid: false, code: "FORMULA_VARIABLE_UNKNOWN", message: formulaMessages.FORMULA_VARIABLE_UNKNOWN, variables };
+    if (variables.some((variable) => !(TEMPLATE_FORMULA_VARIABLES as readonly string[]).includes(variable))) return { valid: false, code: "FORMULA_VARIABLE_UNKNOWN", variables };
     evaluateFormula(formula, Object.fromEntries(TEMPLATE_FORMULA_VARIABLES.map((variable) => [variable, 1])));
-    return { valid: true, code: null, message: "الصيغة صالحة. المتغيرات المتاحة: quantity وrate وwaste.", variables };
+    return { valid: true, code: null, variables };
   } catch (error) {
     const code = error instanceof Error ? error.message : "FORMULA_EXPRESSION_INVALID";
-    return { valid: false, code, message: formulaMessages[code] ?? "تعذر التحقق من الصيغة.", variables: [] };
+    return { valid: false, code, variables: [] };
   }
 }

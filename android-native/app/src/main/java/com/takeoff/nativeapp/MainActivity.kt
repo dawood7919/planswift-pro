@@ -35,6 +35,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.takeoff.nativeapp.ui.TakeoffCanvas
 import com.takeoff.nativeapp.ui.TakeoffCommandBar
@@ -254,7 +255,7 @@ private fun TakeoffNativeScreen(
                                 modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
                                 containerColor = MaterialTheme.colorScheme.primary,
                                 contentColor = MaterialTheme.colorScheme.onPrimary
-                            ) { Text("لوحة") }
+                            ) { Text(stringResource(R.string.panel)) }
                         }
                     }
                 }
@@ -281,21 +282,21 @@ private fun TakeoffStartScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Surface(color = com.takeoff.nativeapp.ui.TakeoffSignal, shape = RoundedCornerShape(12.dp)) {
-                    Text("TAKEOFF  /  WORKSPACE", modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp), style = MaterialTheme.typography.labelLarge, color = com.takeoff.nativeapp.ui.TakeoffInk)
+                    Text(stringResource(R.string.start_tag), modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp), style = MaterialTheme.typography.labelLarge, color = com.takeoff.nativeapp.ui.TakeoffInk)
                 }
-                Text("كل مخطط.\nقرار أوضح.", style = MaterialTheme.typography.headlineSmall, color = com.takeoff.nativeapp.ui.TakeoffInk)
-                Text("افتح مخطط PDF، عاير المقياس، ثم سجّل الكميات والتقدير في مساحة عمل مصممة للمراجعة.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.start_title), style = MaterialTheme.typography.headlineSmall, color = com.takeoff.nativeapp.ui.TakeoffInk)
+                Text(stringResource(R.string.start_body), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Surface(color = Color(0xFFEAF0EC), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                        Text("تدفق العمل", style = MaterialTheme.typography.titleSmall, color = com.takeoff.nativeapp.ui.TakeoffInk)
-                        Text("01  افتح المخطط", style = MaterialTheme.typography.bodyMedium)
-                        Text("02  عاير المسافة الحقيقية", style = MaterialTheme.typography.bodyMedium)
-                        Text("03  قِس، قدّر، ثم راجع الإصدار", style = MaterialTheme.typography.bodyMedium)
+                        Text(stringResource(R.string.start_flow), style = MaterialTheme.typography.titleSmall, color = com.takeoff.nativeapp.ui.TakeoffInk)
+                        Text(stringResource(R.string.start_step_one), style = MaterialTheme.typography.bodyMedium)
+                        Text(stringResource(R.string.start_step_two), style = MaterialTheme.typography.bodyMedium)
+                        Text(stringResource(R.string.start_step_three), style = MaterialTheme.typography.bodyMedium)
                     }
                 }
-                Button(onClick = onOpenPlan, modifier = Modifier.fillMaxWidth()) { Text("فتح مخطط PDF والبدء") }
-                OutlinedButton(onClick = onOpenWorkspace, modifier = Modifier.fillMaxWidth()) { Text("لوحة المشروع والمزامنة") }
-                Text("يعمل التطبيق محلياً أولاً، ويمكن ربطه بالمنصة عند الحاجة من لوحة المشروع.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                Button(onClick = onOpenPlan, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.open_plan)) }
+                OutlinedButton(onClick = onOpenWorkspace, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.open_workspace)) }
+                Text(stringResource(R.string.start_local_first), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             }
         }
     }

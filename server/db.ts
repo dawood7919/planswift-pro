@@ -686,27 +686,35 @@ export type SaveWorkspaceInput = {
 
 export async function saveProjectWorkspace(ownerId: number, projectId: string, input: SaveWorkspaceInput) {
   const db = requireDb(await getDb());
-  const existing = await db.select({ id: projects.id }).from(projects).where(and(eq(projects.id, projectId), eq(projects.ownerId, ownerId))).limit(1);
-  if (!existing[0]) throw new Error("PROJECT_NOT_FOUND");
+  return saveProjectWorkspaceWithDatabase(db, ownerId, projectId, input);
+}
+
+export async function saveProjectWorkspaceWithDatabase(db: ReturnType<typeof drizzle>, ownerId: number, projectId: string, input: SaveWorkspaceInput) {
   const templateIds = Array.from(new Set(input.items.flatMap((item) => item.templateId ? [item.templateId] : [])));
-  if (templateIds.length) {
-    const templates = await db.select({ id: takeoffTemplates.id }).from(takeoffTemplates).where(and(eq(takeoffTemplates.ownerId, ownerId), inArray(takeoffTemplates.id, templateIds)));
-    assertOwnedTemplateIds(templateIds, templates);
-  }
-  await db.update(projectPages).set({
-    name: input.page.name,
-    scaleDrawingDistance: input.page.scaleDrawingDistance === null ? null : input.page.scaleDrawingDistance?.toString(),
-    scaleWorldDistance: input.page.scaleWorldDistance === null ? null : input.page.scaleWorldDistance?.toString(),
-    scaleUnit: input.page.scaleUnit ?? null,
-  }).where(and(eq(projectPages.id, input.page.id), eq(projectPages.projectId, projectId)));
-  await db.delete(takeoffItems).where(and(eq(takeoffItems.projectId, projectId), eq(takeoffItems.pageId, input.page.id)));
-  if (input.items.length) {
-    await db.insert(takeoffItems).values(input.items.map((item) => ({ ...item, projectId })));
-  }
-  const lastCommand = await db.select({ sequence: projectCommands.sequence }).from(projectCommands).where(eq(projectCommands.projectId, projectId)).orderBy(desc(projectCommands.sequence)).limit(1);
-  const firstSequence = (lastCommand[0]?.sequence ?? 0) + 1;
-  const commandRows = input.commandEvents.map((event, index) => ({ id: nanoid(20), projectId, sequence: firstSequence + index, type: event.type, payloadJson: event.payloadJson }));
-  commandRows.push({ id: nanoid(20), projectId, sequence: firstSequence + commandRows.length, type: "SAVE_WORKSPACE", payloadJson: JSON.stringify({ itemCount: input.items.length }) });
-  await db.insert(projectCommands).values(commandRows);
+  await db.transaction(async (tx) => {
+    const [existing] = await tx.select({ id: projects.id }).from(projects).where(and(eq(projects.id, projectId), eq(projects.ownerId, ownerId))).limit(1);
+    if (!existing) throw new Error("PROJECT_NOT_FOUND");
+    const [page] = await tx.select({ id: projectPages.id }).from(projectPages).where(and(eq(projectPages.id, input.page.id), eq(projectPages.projectId, projectId))).limit(1);
+    if (!page) throw new Error("PAGE_NOT_FOUND");
+    if (templateIds.length) {
+      const templates = await tx.select({ id: takeoffTemplates.id }).from(takeoffTemplates).where(and(eq(takeoffTemplates.ownerId, ownerId), inArray(takeoffTemplates.id, templateIds)));
+      assertOwnedTemplateIds(templateIds, templates);
+    }
+    await tx.update(projectPages).set({
+      name: input.page.name,
+      scaleDrawingDistance: input.page.scaleDrawingDistance === null ? null : input.page.scaleDrawingDistance?.toString(),
+      scaleWorldDistance: input.page.scaleWorldDistance === null ? null : input.page.scaleWorldDistance?.toString(),
+      scaleUnit: input.page.scaleUnit ?? null,
+    }).where(and(eq(projectPages.id, input.page.id), eq(projectPages.projectId, projectId)));
+    await tx.delete(takeoffItems).where(and(eq(takeoffItems.projectId, projectId), eq(takeoffItems.pageId, input.page.id)));
+    if (input.items.length) {
+      await tx.insert(takeoffItems).values(input.items.map((item) => ({ ...item, projectId })));
+    }
+    const lastCommand = await tx.select({ sequence: projectCommands.sequence }).from(projectCommands).where(eq(projectCommands.projectId, projectId)).orderBy(desc(projectCommands.sequence)).limit(1);
+    const firstSequence = (lastCommand[0]?.sequence ?? 0) + 1;
+    const commandRows = input.commandEvents.map((event, index) => ({ id: nanoid(20), projectId, sequence: firstSequence + index, type: event.type, payloadJson: event.payloadJson }));
+    commandRows.push({ id: nanoid(20), projectId, sequence: firstSequence + commandRows.length, type: "SAVE_WORKSPACE", payloadJson: JSON.stringify({ itemCount: input.items.length }) });
+    await tx.insert(projectCommands).values(commandRows);
+  });
   return { saved: true };
 }

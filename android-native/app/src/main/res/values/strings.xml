@@ -1,0 +1,23 @@
+<resources>
+    <string name="app_name">Takeoff</string>
+    <string name="language">Language</string>
+    <string name="unit_system">Unit system</string>
+    <string name="unit_metric">Metric</string>
+    <string name="unit_imperial">Imperial</string>
+    <string name="unit_count">EA</string>
+    <string name="workspace">Workspace</string>
+    <string name="measurements">Measurements</string>
+    <string name="projects">Projects</string>
+    <string name="sync">Sync</string>
+    <string name="panel">Panel</string>
+    <string name="start_tag">TAKEOFF / WORKSPACE</string>
+    <string name="start_title">Every plan.\nA clearer decision.</string>
+    <string name="start_body">Open a PDF plan, calibrate its scale, then record quantities and estimates in a workspace designed for review.</string>
+    <string name="start_flow">Workflow</string>
+    <string name="start_step_one">01  Open the plan</string>
+    <string name="start_step_two">02  Calibrate the real distance</string>
+    <string name="start_step_three">03  Measure, estimate, then review the version</string>
+    <string name="open_plan">Open PDF plan and begin</string>
+    <string name="open_workspace">Project workspace and sync</string>
+    <string name="start_local_first">The app works locally first and can connect to the platform when needed from the project panel.</string>
+</resources>

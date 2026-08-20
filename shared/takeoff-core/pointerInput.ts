@@ -6,6 +6,8 @@ export function normalizePointerInput(pointerType: string | undefined): PointerI
   return "mouse";
 }
 
-export function pointerInputLabel(pointerType: PointerInputKind): string {
-  return pointerType === "pen" ? "قلم / S Pen" : pointerType === "touch" ? "لمس" : "فأرة";
+export type PointerInputLabelKey = "pointer.pen" | "pointer.touch" | "pointer.mouse";
+
+export function pointerInputLabelKey(pointerType: PointerInputKind): PointerInputLabelKey {
+  return pointerType === "pen" ? "pointer.pen" : pointerType === "touch" ? "pointer.touch" : "pointer.mouse";
 }

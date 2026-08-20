@@ -10,17 +10,7 @@ export type TemplateDependencyNode = {
 export type TemplateDependencyDiagnostic = {
   valid: boolean;
   code: string | null;
-  message: string;
   cycleIds: string[];
-};
-
-const dependencyMessages: Record<string, string> = {
-  TEMPLATE_DEPENDENCY_DUPLICATE: "لا يمكن إضافة القالب نفسه أكثر من مرة ضمن المراجع.",
-  TEMPLATE_DEPENDENCY_NOT_FOUND: "تتضمن المراجع قالباً غير متاح ضمن مكتبتك.",
-  TEMPLATE_DEPENDENCY_SELF_REFERENCE: "لا يمكن للقالب أن يعتمد على نفسه.",
-  TEMPLATE_DEPENDENCY_CYCLE: "تُنشئ المراجع حلقة بين القوالب؛ عدّل الاختيار قبل الحفظ.",
-  TEMPLATE_DEPENDENCY_RATE_INVALID: "سعر أحد القوالب التابعة غير صالح للتقييم.",
-  TEMPLATE_DEPENDENCY_RESULT_INVALID: "نتيجة تقييم تبعيات القالب غير صالحة.",
 };
 
 function nodeMap(templates: TemplateDependencyNode[]) {
@@ -89,16 +79,16 @@ export function topologicalTemplateOrder(templates: TemplateDependencyNode[]): s
   return ordered;
 }
 
-/** Gives a UI-safe validation result for a proposed complete template dependency graph. */
+/** Gives a locale-neutral validation result for a proposed complete template dependency graph. */
 export function inspectTemplateDependencies(templates: TemplateDependencyNode[], focusTemplateId?: string): TemplateDependencyDiagnostic {
   try {
     const cycle = focusTemplateId ? detectTemplateCycle(focusTemplateId, templates) : templates.flatMap((template) => detectTemplateCycle(template.id, templates)).slice(0, 1);
-    if (cycle.length) return { valid: false, code: "TEMPLATE_DEPENDENCY_CYCLE", message: dependencyMessages.TEMPLATE_DEPENDENCY_CYCLE, cycleIds: cycle };
+    if (cycle.length) return { valid: false, code: "TEMPLATE_DEPENDENCY_CYCLE", cycleIds: cycle };
     topologicalTemplateOrder(templates);
-    return { valid: true, code: null, message: "مراجع القوالب صالحة وسيجري تقييمها بترتيب حتمي.", cycleIds: [] };
+    return { valid: true, code: null, cycleIds: [] };
   } catch (error) {
     const code = error instanceof Error ? error.message : "TEMPLATE_DEPENDENCY_NOT_FOUND";
-    return { valid: false, code, message: dependencyMessages[code] ?? "تعذر التحقق من مراجع القوالب.", cycleIds: [] };
+    return { valid: false, code, cycleIds: [] };
   }
 }
 

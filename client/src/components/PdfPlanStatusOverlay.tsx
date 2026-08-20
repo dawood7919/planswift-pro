@@ -7,9 +7,11 @@ type PdfPlanStatusOverlayProps = {
 };
 
 export function PdfPlanStatusOverlay({ status, error, onRetry }: PdfPlanStatusOverlayProps) {
-  if (status === "LOADING") return <span className="pdf-plan-loading" aria-live="polite">جارٍ عرض صفحة PDF…</span>;
+  const { t } = useTranslation();
+  if (status === "LOADING") return <span className="pdf-plan-loading" aria-live="polite">{t("pdf.loading")}</span>;
   if (status !== "ERROR") return null;
-  return <div className="pdf-plan-error" role="alert"><span>{error}</span><button type="button" onClick={onRetry}>إعادة محاولة العرض</button></div>;
+  return <div className="pdf-plan-error" role="alert"><span>{error}</span><button type="button" onClick={onRetry}>{t("pdf.retry")}</button></div>;
 }
 
 export type PdfPlanStatusOverlayElement = ComponentProps<typeof PdfPlanStatusOverlay>;
+import { useTranslation } from "@/i18n";

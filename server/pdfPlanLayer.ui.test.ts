@@ -5,9 +5,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const pdfMocks = vi.hoisted(() => ({ getDocument: vi.fn() }));
 vi.mock("pdfjs-dist", () => ({ getDocument: pdfMocks.getDocument, GlobalWorkerOptions: {} }));
+vi.mock("@/i18n", () => ({ useTranslation: () => ({ t: (key: string, values?: Record<string, string | number>) => ({ "pdf.loading": "جارٍ عرض صفحة PDF…", "pdf.error": "تعذر عرض صفحة PDF. تأكد من أن الملف صالح ثم أعد المحاولة.", "pdf.retry": "إعادة محاولة العرض", "pdf.pageLabel": `صفحة PDF رقم ${values?.pageNumber ?? ""}` }[key] ?? key) }) }));
 
 import PdfPlanLayer from "../client/src/components/PdfPlanLayer";
-import { PDF_RENDER_ERROR_MESSAGE } from "../shared/takeoff-core/pdfStatus";
 
 describe("PdfPlanLayer failure recovery", () => {
   afterEach(() => { pdfMocks.getDocument.mockReset(); vi.unstubAllGlobals(); });
@@ -15,7 +15,7 @@ describe("PdfPlanLayer failure recovery", () => {
   it("renders the actual error overlay and retries after a PDF load failure", async () => {
     pdfMocks.getDocument.mockImplementation(() => ({ promise: Promise.reject(new Error("load failed")), destroy: vi.fn() }));
     render(createElement(PdfPlanLayer, { url: "/invalid.pdf", pageNumber: 1, pageSize: { width: 320, height: 480 }, viewport: { scale: 1, offsetX: 0, offsetY: 0 } }));
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain(PDF_RENDER_ERROR_MESSAGE));
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("تعذر عرض صفحة PDF"));
     fireEvent.click(screen.getByRole("button", { name: "إعادة محاولة العرض" }));
     await waitFor(() => expect(pdfMocks.getDocument).toHaveBeenCalledTimes(2));
   });

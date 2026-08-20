@@ -31,6 +31,27 @@ vi.mock("wouter", () => ({ useRoute: () => [true, { projectId: "project-1" }], u
 vi.mock("@/components/PdfPlanLayer", () => ({ default: () => null }));
 vi.mock("@/components/PdfThumbnail", () => ({ default: () => null }));
 vi.mock("@/components/PdfReviewOverlay", () => ({ default: () => null }));
+vi.mock("../client/src/i18n", () => ({
+  useTranslation: () => ({
+    locale: "ar",
+    direction: "rtl",
+    unitSystem: "metric",
+    setLocale: vi.fn(),
+    setUnitSystem: vi.fn(),
+    t: (key: string) => ({
+      "formula.valid": "الصيغة صالحة.",
+      "formula.FORMULA_VARIABLE_UNKNOWN": "تحتوي الصيغة على متغير غير مسموح.",
+      "template.valid": "مراجع القوالب صالحة.",
+      "template.TEMPLATE_DEPENDENCY_CYCLE": "تُنشئ المراجع حلقة بين القوالب.",
+      "settings.language": "اللغة",
+      "settings.units": "نظام الوحدات",
+      "settings.arabic": "العربية",
+      "settings.english": "English",
+      "settings.metric": "متري",
+      "settings.imperial": "إمبراطوري",
+    }[key] ?? key),
+  }),
+}));
 
 import WorkspacePage from "../client/src/pages/WorkspacePage";
 
@@ -98,8 +119,9 @@ describe("WorkspacePage search integration", () => {
   it("saves the selected reference document as a project review", async () => {
     const view = render(createElement(WorkspacePage));
     const root = within(view.container);
-    await waitFor(() => expect(root.getByRole("combobox")).toBeTruthy());
-    fireEvent.change(root.getByRole("combobox"), { target: { value: "document-reference" } });
+    const reviewSelect = root.getAllByRole("combobox").find((select) => select.textContent?.includes("مرجع.pdf"));
+    expect(reviewSelect).toBeTruthy();
+    fireEvent.change(reviewSelect!, { target: { value: "document-reference" } });
     fireEvent.click(root.getByRole("button", { name: /حفظ الوثيقة المختارة/ }));
     expect(mutation.mutate).toHaveBeenCalledWith(expect.objectContaining({ projectId: "project-1", sourcePageId: "page-1", referenceDocumentId: "document-reference", label: "مراجعة المخطط" }));
   });

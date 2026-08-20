@@ -2,10 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 import { buildPrintableReportHtml, sendToPrintWindow } from "../shared/takeoff-core/printReport";
 
 const report = { projectName: "مشروع <خاص>", pageName: "صفحة 1", currency: "USD", generatedAt: "2026-08-19T00:00:00.000Z", total: 12, rows: [{ id: "1", name: "بند &", kind: "AREA" as const, quantity: 4, unit: "m²", unitRate: 3, cost: 12, templateName: "", status: "VALID" as const }] };
+const arabicLabels = { language: "ar", direction: "rtl" as const, title: "تقرير كميات Takeoff", headers: ["العنصر", "النوع", "الكمية", "الوحدة", "القالب", "التكلفة", "الحالة"] as [string, string, string, string, string, string, string], pageTotal: "إجمالي الصفحة", manualPricing: "تسعير يدوي", generatedAt: "تم الإنشاء في", sourceNote: "الحسابات مستمدة من عناصر القياس المحفوظة.", formatQuantity: (quantity: number | null) => quantity === null ? "—" : `${quantity} m²`, formatCurrency: (amount: number | null) => amount === null ? "—" : `$${amount.toFixed(2)}`, formatStatus: (status: string) => status === "VALID" ? "صالح" : status };
 
 describe("print report", () => {
   it("creates an escaped Arabic HTML report with a total", () => {
-    const html = buildPrintableReportHtml(report);
+    const html = buildPrintableReportHtml(report, arabicLabels);
     expect(html).toContain('dir="rtl"');
     expect(html).toContain("مشروع &lt;خاص&gt;");
     expect(html).toContain("بند &amp;");

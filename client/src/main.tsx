@@ -5,6 +5,7 @@ import { httpBatchLink, TRPCClientError } from "@trpc/client";
 import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import App from "./App";
+import { TranslationProvider } from "./i18n";
 import { fetchWithTimeout } from "./lib/requestTimeout";
 import "./index.css";
 
@@ -67,7 +68,7 @@ if (import.meta.env.PROD && "serviceWorker" in navigator) {
 createRoot(document.getElementById("root")!).render(
   <trpc.Provider client={trpcClient} queryClient={queryClient}>
     <QueryClientProvider client={queryClient}>
-      <App />
+      <TranslationProvider><App /></TranslationProvider>
     </QueryClientProvider>
   </trpc.Provider>
 );

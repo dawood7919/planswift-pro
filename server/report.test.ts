@@ -16,10 +16,10 @@ describe("quantity report", () => {
 
   it("quotes CSV fields and retains invalid measurement diagnostics", () => {
     const rows = buildQuantityReport([{ id: "line-1", name: "بند, خاص", kind: "LINEAR", geometry: { points: [{ x: 0, y: 0 }, { x: 1, y: 1 }] }, rate: "2" }], null);
-    const csv = reportToCsv(rows, reportTotal(rows), "USD");
+    const csv = reportToCsv(rows, reportTotal(rows), "USD", { headers: ["Item", "Kind", "Quantity", "Unit", "Template", "Rate", "Cost", "Status", "Diagnostic"], pageTotal: "Page total" });
     expect(csv).toContain('"بند, خاص"');
     expect(csv).toContain("UNSCALED");
-    expect(csv.startsWith("\uFEFFالعنصر")).toBe(true);
+    expect(csv.startsWith("\uFEFFItem")).toBe(true);
   });
 
   it("includes explicit dependency outputs in the template cost", () => {

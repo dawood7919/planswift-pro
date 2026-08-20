@@ -26,10 +26,22 @@ export type MeasurementGeometry = {
 export type MeasurementResult = {
   value: number;
   rawValue: number;
-  unit: string;
+  unit: MeasurementUnit | null;
   status: "VALID" | "UNSCALED" | "INVALID";
   diagnostic?: string;
 };
+
+export type MeasurementUnit =
+  | { kind: "COUNT" }
+  | { kind: "LENGTH"; unit: CalibrationScale["unit"] }
+  | { kind: "AREA"; unit: CalibrationScale["unit"] }
+  | { kind: "VOLUME"; unit: CalibrationScale["unit"] };
+
+export function measurementUnitCode(unit: MeasurementUnit | null): string {
+  if (!unit) return "";
+  if (unit.kind === "COUNT") return "COUNT";
+  return `${unit.kind}:${unit.unit}`;
+}
 
 const EPSILON = 1e-9;
 
@@ -186,14 +198,6 @@ export function createCalibration(
   return { drawingDistance, worldDistance, unit, factor: worldDistance / drawingDistance };
 }
 
-function areaUnit(unit: CalibrationScale["unit"]): string {
-  return `${unit}²`;
-}
-
-function volumeUnit(unit: CalibrationScale["unit"]): string {
-  return `${unit}³`;
-}
-
 export function calculateMeasurement(
   kind: MeasurementKind,
   geometry: MeasurementGeometry,
@@ -202,46 +206,42 @@ export function calculateMeasurement(
   try {
     if (kind === "COUNT") {
       const count = geometry.marks?.length ?? geometry.points?.length ?? 0;
-      return { value: count, rawValue: count, unit: "عدد", status: "VALID" };
+      return { value: count, rawValue: count, unit: { kind: "COUNT" }, status: "VALID" };
     }
 
     if (!scale) {
-      return { value: 0, rawValue: 0, unit: "", status: "UNSCALED", diagnostic: "CALIBRATION_REQUIRED" };
+      return { value: 0, rawValue: 0, unit: null, status: "UNSCALED", diagnostic: "CALIBRATION_REQUIRED" };
     }
 
     if (kind === "AREA" || kind === "ROOF_AREA" || kind === "VOLUME") {
       const rawArea = polygonArea(geometry.rings ?? (geometry.points ? [geometry.points] : []));
       const scaledArea = rawArea * scale.factor ** 2;
-      if (kind === "AREA") return { value: scaledArea, rawValue: rawArea, unit: areaUnit(scale.unit), status: "VALID" };
+      if (kind === "AREA") return { value: scaledArea, rawValue: rawArea, unit: { kind: "AREA", unit: scale.unit }, status: "VALID" };
 
       if (kind === "ROOF_AREA") {
         const rise = geometry.slopeRise;
         const run = geometry.slopeRun;
         if (typeof rise !== "number" || typeof run !== "number" || !Number.isFinite(rise) || !Number.isFinite(run) || run <= EPSILON || rise < 0) throw new Error("ROOF_SLOPE_REQUIRED");
         const multiplier = Math.sqrt(1 + (rise / run) ** 2);
-        return { value: scaledArea * multiplier, rawValue: rawArea * multiplier, unit: areaUnit(scale.unit), status: "VALID" };
+        return { value: scaledArea * multiplier, rawValue: rawArea * multiplier, unit: { kind: "AREA", unit: scale.unit }, status: "VALID" };
       }
 
       const depth = geometry.depth;
       if (!Number.isFinite(depth) || depth! <= EPSILON) throw new Error("VOLUME_DEPTH_REQUIRED");
-      return { value: scaledArea * depth!, rawValue: rawArea * (depth! / scale.factor), unit: volumeUnit(scale.unit), status: "VALID" };
+      return { value: scaledArea * depth!, rawValue: rawArea * (depth! / scale.factor), unit: { kind: "VOLUME", unit: scale.unit }, status: "VALID" };
     }
 
     const rawValue = kind === "LINEAR"
       ? polylineLength(geometry.points ?? [])
       : segmentLength(geometry.points ?? []);
-    return { value: rawValue * scale.factor, rawValue, unit: scale.unit, status: "VALID" };
+    return { value: rawValue * scale.factor, rawValue, unit: { kind: "LENGTH", unit: scale.unit }, status: "VALID" };
   } catch (error) {
     return {
       value: 0,
       rawValue: 0,
-      unit: scale?.unit ?? "",
+      unit: scale ? { kind: "LENGTH", unit: scale.unit } : null,
       status: "INVALID",
       diagnostic: error instanceof Error ? error.message : "MEASUREMENT_FAILED",
     };
   }
-}
-
-export function formatQuantity(value: number, unit: string): string {
-  return `${new Intl.NumberFormat("ar", { maximumFractionDigits: 2 }).format(value)} ${unit}`.trim();
 }

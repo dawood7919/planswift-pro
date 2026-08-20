@@ -30,13 +30,13 @@ describe("takeoff geometry core", () => {
   it("calibrates drawing space and derives a scaled area", () => {
     const scale = createCalibration({ x: 0, y: 0 }, { x: 10, y: 0 }, 20, "m");
     const measurement = calculateMeasurement("AREA", { rings: [square] }, scale);
-    expect(measurement).toMatchObject({ value: 400, rawValue: 100, unit: "m²", status: "VALID" });
+    expect(measurement).toMatchObject({ value: 400, rawValue: 100, unit: { kind: "AREA", unit: "m" }, status: "VALID" });
   });
 
   it("derives sloped roof area and volume from planar area with explicit real-world inputs", () => {
     const scale = createCalibration({ x: 0, y: 0 }, { x: 10, y: 0 }, 20, "m");
-    expect(calculateMeasurement("ROOF_AREA", { rings: [square], slopeRise: 3, slopeRun: 4 }, scale)).toMatchObject({ value: 500, unit: "m²", status: "VALID" });
-    expect(calculateMeasurement("VOLUME", { rings: [square], depth: 2 }, scale)).toMatchObject({ value: 800, unit: "m³", status: "VALID" });
+    expect(calculateMeasurement("ROOF_AREA", { rings: [square], slopeRise: 3, slopeRun: 4 }, scale)).toMatchObject({ value: 500, unit: { kind: "AREA", unit: "m" }, status: "VALID" });
+    expect(calculateMeasurement("VOLUME", { rings: [square], depth: 2 }, scale)).toMatchObject({ value: 800, unit: { kind: "VOLUME", unit: "m" }, status: "VALID" });
   });
 
   it("requires a positive run for roof area and a positive depth for volume", () => {
@@ -48,7 +48,7 @@ describe("takeoff geometry core", () => {
   it("keeps disconnected segments distinct while summing their lengths", () => {
     const points = [{ x: 0, y: 0 }, { x: 3, y: 0 }, { x: 10, y: 10 }, { x: 10, y: 14 }];
     expect(segmentLength(points)).toBe(7);
-    expect(calculateMeasurement("COUNT", { marks: points })).toMatchObject({ value: 4, unit: "عدد" });
+    expect(calculateMeasurement("COUNT", { marks: points })).toMatchObject({ value: 4, unit: { kind: "COUNT" } });
   });
 
   it("refuses measurements that lack calibration", () => {

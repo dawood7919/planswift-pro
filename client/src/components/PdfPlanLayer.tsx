@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import type { PageSize, PageViewport } from "@shared/takeoff-core/viewport";
-import { getPdfRenderStatus, PDF_RENDER_ERROR_MESSAGE } from "@shared/takeoff-core/pdfStatus";
+import { getPdfRenderStatus, PDF_RENDER_ERROR } from "@shared/takeoff-core/pdfStatus";
+import { useTranslation } from "@/i18n";
 import { PdfPlanStatusOverlay } from "./PdfPlanStatusOverlay";
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
@@ -26,6 +27,7 @@ export function getPdfPageCount(buffer: ArrayBuffer) {
 }
 
 export default function PdfPlanLayer({ url, pageNumber, pageSize, viewport }: PdfPlanLayerProps) {
+  const { t } = useTranslation();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isRendering, setIsRendering] = useState(true);
@@ -62,7 +64,7 @@ export default function PdfPlanLayer({ url, pageNumber, pageSize, viewport }: Pd
           document.cleanup();
           if (!cancelled) setIsRendering(false);
         } catch (error) {
-          if (!cancelled && !(error instanceof Error && /cancel/i.test(error.name))) { setError(PDF_RENDER_ERROR_MESSAGE); setIsRendering(false); }
+          if (!cancelled && !(error instanceof Error && /cancel/i.test(error.name))) { setError(PDF_RENDER_ERROR); setIsRendering(false); }
         }
       })();
     }, 120);
@@ -71,9 +73,9 @@ export default function PdfPlanLayer({ url, pageNumber, pageSize, viewport }: Pd
 
   const status = getPdfRenderStatus(isRendering, Boolean(error));
   return (
-    <div className="pdf-plan-layer" aria-label={`صفحة PDF رقم ${pageNumber}`}>
+    <div className="pdf-plan-layer" aria-label={t("pdf.pageLabel", { pageNumber })}>
       <canvas ref={canvasRef} style={{ left: viewport.offsetX, top: viewport.offsetY, width: cssWidth, height: cssHeight }} />
-      <PdfPlanStatusOverlay status={status} error={error} onRetry={() => setRenderAttempt((attempt) => attempt + 1)} />
+      <PdfPlanStatusOverlay status={status} error={error ? t("pdf.error") : null} onRetry={() => setRenderAttempt((attempt) => attempt + 1)} />
     </div>
   );
 }

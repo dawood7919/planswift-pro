@@ -1,0 +1,23 @@
+<resources>
+    <string name="app_name">تيك أوف</string>
+    <string name="language">اللغة</string>
+    <string name="unit_system">نظام الوحدات</string>
+    <string name="unit_metric">متري</string>
+    <string name="unit_imperial">إمبراطوري</string>
+    <string name="unit_count">عدد</string>
+    <string name="workspace">مساحة العمل</string>
+    <string name="measurements">القياسات</string>
+    <string name="projects">المشاريع</string>
+    <string name="sync">مزامنة</string>
+    <string name="panel">لوحة</string>
+    <string name="start_tag">تيك أوف / مساحة العمل</string>
+    <string name="start_title">كل مخطط.\nقرار أوضح.</string>
+    <string name="start_body">افتح مخطط PDF، عاير المقياس، ثم سجّل الكميات والتقدير في مساحة عمل مصممة للمراجعة.</string>
+    <string name="start_flow">تدفق العمل</string>
+    <string name="start_step_one">01  افتح المخطط</string>
+    <string name="start_step_two">02  عاير المسافة الحقيقية</string>
+    <string name="start_step_three">03  قِس، قدّر، ثم راجع الإصدار</string>
+    <string name="open_plan">فتح مخطط PDF والبدء</string>
+    <string name="open_workspace">لوحة المشروع والمزامنة</string>
+    <string name="start_local_first">يعمل التطبيق محلياً أولاً، ويمكن ربطه بالمنصة عند الحاجة من لوحة المشروع.</string>
+</resources>

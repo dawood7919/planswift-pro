@@ -11,7 +11,7 @@ export type PageViewport = {
   offsetY: number;
 };
 
-/** مساحة الصفحة الاصطناعية للرسم الحر فقط، وليست بديلاً عن أبعاد PDF. */
+/** Synthetic page space for freehand drawing; it is not a replacement for PDF dimensions. */
 export const DEFAULT_BLANK_PAGE_SIZE: PageSize = { width: 1000, height: 720 };
 
 function finite(value: number) {

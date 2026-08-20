@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getPdfRenderStatus, PDF_RENDER_ERROR_MESSAGE } from "../shared/takeoff-core/pdfStatus";
+import { getPdfRenderStatus, PDF_RENDER_ERROR } from "../shared/takeoff-core/pdfStatus";
 
 describe("PDF presentation status", () => {
   it("gives failure priority over a stale loading state", () => {
@@ -8,7 +8,7 @@ describe("PDF presentation status", () => {
     expect(getPdfRenderStatus(false, false)).toBe("READY");
   });
 
-  it("keeps a clear Arabic recovery message", () => {
-    expect(PDF_RENDER_ERROR_MESSAGE).toContain("أعد المحاولة");
+  it("exposes a language-neutral rendering error code", () => {
+    expect(PDF_RENDER_ERROR).toBe("PDF_RENDER_ERROR");
   });
 });
