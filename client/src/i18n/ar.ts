@@ -114,6 +114,21 @@ export const ar = {
   "project.estimateTitle": "ملخص التقدير",
   "project.estimateDescription": "افتح المخطط للوصول إلى تقرير الصفحة الحالي، والتصدير، والطباعة المنظمة.",
   "project.openReport": "فتح تقرير الصفحة",
+  "dashboard.authTitle": "سجّل الدخول للمتابعة",
+  "dashboard.authError": "تعذر التحقق من جلسة الدخول. تأكد من الاتصال ثم أعد المحاولة، أو ابدأ تسجيل الدخول من جديد.",
+  "dashboard.authDescription": "تحتاج مساحة عمل Takeoff إلى حساب لحفظ المشاريع والقياسات والتقديرات.",
+  "dashboard.retryAuth": "إعادة محاولة التحقق",
+  "dashboard.signIn": "تسجيل الدخول",
+  "dashboard.projects": "المشاريع",
+  "dashboard.product": "مشاريع Takeoff",
+  "dashboard.toggleNavigation": "تبديل قائمة التنقل",
+  "dashboard.signOut": "تسجيل الخروج",
+  "dashboard.menu": "القائمة",
+  "search.label": "بحث عناصر القياس",
+  "search.heading": "بحث العناصر",
+  "search.placeholder": "اسم، نوع، أو قالب",
+  "search.empty": "لا توجد عناصر مطابقة في هذه الصفحة.",
+  "search.hint": "البحث يحدد العنصر فقط ولا يغيّر القياسات أو الحفظ.",
 } as const;
 
 export type TranslationKey = keyof typeof ar;

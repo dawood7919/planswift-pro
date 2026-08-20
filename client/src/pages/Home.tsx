@@ -22,6 +22,7 @@ import {
   X,
 } from "lucide-react";
 import { faqItems, roadmap, toolCards } from "./homeContent";
+import { useTranslation } from "@/i18n";
 import { Link } from "wouter";
 
 type RoadmapItem = (typeof roadmap)[number];
@@ -44,12 +45,13 @@ const toolIcons = {
 };
 
 export default function Home() {
+  const { direction } = useTranslation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const closeMenu = () => setMobileMenuOpen(false);
 
   return (
-    <div className="landing-shell" dir="rtl">
+    <div className="landing-shell" dir={direction}>
       <header className="site-header">
         <nav className="nav-wrap" aria-label="التنقل الرئيسي">
           <a href="#top" className="brand" aria-label="Takeoff Platform، الصفحة الرئيسية">

@@ -2,6 +2,7 @@
 import { createElement } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+vi.mock("@/i18n", () => ({ useTranslation: () => ({ t: (key: string) => ({ "search.label": "بحث عناصر القياس", "search.heading": "بحث العناصر", "search.placeholder": "اسم، نوع، أو قالب", "search.empty": "لا توجد عناصر مطابقة في هذه الصفحة.", "search.hint": "البحث يحدد العنصر فقط ولا يغيّر القياسات أو الحفظ." }[key] ?? key) }) }));
 import { ItemSearchPanel } from "../client/src/components/ItemSearchPanel";
 
 describe("ItemSearchPanel", () => {

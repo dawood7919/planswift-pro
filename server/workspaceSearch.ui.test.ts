@@ -49,6 +49,11 @@ vi.mock("../client/src/i18n", () => ({
       "settings.english": "English",
       "settings.metric": "متري",
       "settings.imperial": "إمبراطوري",
+      "search.label": "بحث عناصر القياس",
+      "search.heading": "بحث العناصر",
+      "search.placeholder": "اسم، نوع، أو قالب",
+      "search.empty": "لا توجد عناصر مطابقة في هذه الصفحة.",
+      "search.hint": "البحث يحدد العنصر فقط ولا يغيّر القياسات أو الحفظ.",
     }[key] ?? key),
   }),
 }));
