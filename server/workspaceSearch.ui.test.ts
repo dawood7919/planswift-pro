@@ -238,4 +238,16 @@ describe("WorkspacePage search integration", () => {
     const names = saved.items.map((entry) => entry.name);
     expect(names).toHaveLength(new Set(names).size);
   });
+
+  it("renders every inspector panel under the class its stylesheet targets", () => {
+    const view = render(createElement(WorkspacePage));
+    const root = within(view.container);
+    fireEvent.click([...view.container.querySelectorAll(".topbar-actions button")].find((button) => button.textContent?.includes("القوالب"))!);
+    fireEvent.click([...view.container.querySelectorAll(".topbar-actions button")].find((button) => button.textContent?.includes("تقرير"))!);
+    // A panel whose class is wrong still renders and still passes behavioural tests, but
+    // loses every style rule written for it.
+    for (const panel of [".templates-card", ".estimate-library-card", ".report-card", ".versions-card", ".annotation-card", ".ps-template-browser", ".item-search"]) {
+      expect(view.container.querySelector(panel), panel).toBeTruthy();
+    }
+  });
 });
