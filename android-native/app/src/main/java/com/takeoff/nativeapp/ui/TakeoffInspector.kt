@@ -25,6 +25,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.takeoff.nativeapp.MeasurementKind
 import com.takeoff.nativeapp.NativeCloudDocument
+import com.takeoff.nativeapp.NativeCloudReview
 import com.takeoff.nativeapp.TakeoffUiState
 import com.takeoff.nativeapp.estimation.EstimationEngine
 import com.takeoff.nativeapp.estimation.CostKind
@@ -45,7 +46,10 @@ fun TakeoffInspector(
     onRefreshCloudProjects: () -> Unit,
     onImportCloudProject: (String) -> Unit,
     onLoadCloudDocuments: (String) -> Unit,
+    onLoadCloudReviews: (String) -> Unit,
     onDownloadCloudPdf: (String, NativeCloudDocument) -> Unit,
+    onOpenCloudReview: (String, NativeCloudReview) -> Unit,
+    onToggleReferenceOverlay: () -> Unit,
     onClearCloudConnection: () -> Unit,
     onCreateVersion: (String) -> Unit,
     onCompareVersion: (Long) -> Unit,
@@ -112,12 +116,22 @@ fun TakeoffInspector(
             androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
                 Button(onClick = { onImportCloudProject(project.id) }, enabled = !state.isRefreshingCloudProjects, modifier = Modifier.weight(1f)) { Text("استيراد: ${project.name}") }
                 Button(onClick = { onLoadCloudDocuments(project.id) }, enabled = !state.isRefreshingCloudProjects) { Text("PDF") }
+                Button(onClick = { onLoadCloudReviews(project.id) }, enabled = !state.isRefreshingCloudProjects) { Text("مراجعات") }
             }
         }
         if (state.cloudDocumentProjectId != null) state.cloudDocuments.forEach { document ->
             Button(onClick = { onDownloadCloudPdf(state.cloudDocumentProjectId, document) }, enabled = !state.isDownloadingCloudPdf, modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
                 Text(if (state.isDownloadingCloudPdf) "جارٍ تنزيل PDF" else "تنزيل وفتح: ${document.originalName}")
             }
+        }
+        if (state.cloudReviewProjectId != null) state.cloudReviews.forEach { review ->
+            Button(onClick = { onOpenCloudReview(state.cloudReviewProjectId, review) }, enabled = !state.isDownloadingCloudPdf, modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
+                Text(if (state.isDownloadingCloudPdf) "جارٍ فتح المراجعة" else "مراجعة: ${review.label} → ${review.referenceDocumentName}")
+            }
+            review.note?.let { Text(it, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 4.dp)) }
+        }
+        if (state.referencePdfBitmap != null) Button(onClick = onToggleReferenceOverlay, modifier = Modifier.fillMaxWidth().padding(top = 3.dp)) {
+            Text(if (state.isReferenceOverlayVisible) "إخفاء طبقة المراجعة" else "إظهار طبقة المراجعة")
         }
         Spacer(Modifier.height(12.dp))
         Text("الإصدارات المحلية", style = MaterialTheme.typography.titleSmall)

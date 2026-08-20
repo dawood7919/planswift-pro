@@ -103,6 +103,22 @@ export function registerNativeApiRoutes(app: Express) {
     }
   });
 
+  app.get("/api/native/v1/projects/:projectId/reviews", async (request, response) => {
+    response.setHeader("Cache-Control", "no-store");
+    const user = await nativeUser(request, response);
+    if (!user) return;
+    const projectId = request.params.projectId;
+    if (!nativeProjectIdPattern.test(projectId)) {
+      response.status(400).json({ error: "PROJECT_ID_INVALID" });
+      return;
+    }
+    try {
+      response.json({ reviews: await db.listNativeProjectReviews(user.id, projectId) });
+    } catch (error) {
+      sendNativeError(response, error);
+    }
+  });
+
   app.get("/api/native/v1/projects/:projectId/documents/:documentId/download", async (request, response) => {
     response.setHeader("Cache-Control", "no-store");
     const user = await nativeUser(request, response);

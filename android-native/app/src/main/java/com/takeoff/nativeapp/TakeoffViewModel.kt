@@ -5,6 +5,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
+import android.os.ParcelFileDescriptor
 import java.io.File
 import android.view.MotionEvent
 import androidx.compose.ui.geometry.Offset
@@ -64,6 +65,9 @@ data class NativeAnnotation(val id: Long, val text: String, val point: PlanPoint
 data class TakeoffUiState(
     val pdfBitmap: Bitmap? = null,
     val pdfLabel: String? = null,
+    val referencePdfBitmap: Bitmap? = null,
+    val referencePdfLabel: String? = null,
+    val isReferenceOverlayVisible: Boolean = false,
     val selectedTool: NativeTool = NativeTool.PAN,
     val pan: Offset = Offset.Zero,
     val zoom: Float = 1f,
@@ -88,6 +92,8 @@ data class TakeoffUiState(
     val cloudProjects: List<NativeCloudProject> = emptyList(),
     val cloudDocuments: List<NativeCloudDocument> = emptyList(),
     val cloudDocumentProjectId: String? = null,
+    val cloudReviews: List<NativeCloudReview> = emptyList(),
+    val cloudReviewProjectId: String? = null,
     val cloudStatus: String = "غير مرتبط بالمنصة",
     val cloudError: String? = null,
     val isRefreshingCloudProjects: Boolean = false,
@@ -357,6 +363,46 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun loadCloudReviews(projectId: String) {
+        val connection = connectionStore.load()
+        if (connection == null || connection.isExpired()) {
+            _state.update { it.copy(cloudError = "اربط الجهاز برمز جديد قبل عرض المراجعات.") }
+            return
+        }
+        _state.update { it.copy(isRefreshingCloudProjects = true, cloudError = null, cloudStatus = "جارٍ تحميل مراجعات المخطط") }
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { cloudApi.listReviews(connection, projectId) }
+                .onSuccess { reviews -> _state.update { it.copy(cloudReviews = reviews, cloudReviewProjectId = projectId, cloudStatus = "تتوفر ${reviews.size} مراجعة مملوكة", cloudError = null, isRefreshingCloudProjects = false) } }
+                .onFailure { error -> _state.update { it.copy(cloudStatus = "تعذر عرض المراجعات؛ بقيت النسخة المحلية كما هي", cloudError = error.message ?: "تعذر تحميل المراجعات.", isRefreshingCloudProjects = false) } }
+        }
+    }
+
+    fun openCloudReview(projectId: String, review: NativeCloudReview) {
+        val connection = connectionStore.load()
+        if (connection == null || connection.isExpired()) {
+            _state.update { it.copy(cloudError = "اربط الجهاز برمز جديد قبل فتح المراجعة.") }
+            return
+        }
+        _state.update { it.copy(isDownloadingCloudPdf = true, cloudError = null, cloudStatus = "جارٍ تنزيل طبقة المراجعة ${review.label}") }
+        viewModelScope.launch(Dispatchers.IO) {
+            val safeName = review.referenceDocumentName.replace(Regex("[^A-Za-z0-9._-]"), "_").take(120).ifBlank { "reference.pdf" }
+            val destination = File(getApplication<Application>().filesDir, "cloud-pdf/review-${review.id}-$safeName")
+            runCatching {
+                val file = cloudApi.downloadPdf(connection, projectId, review.referenceDocumentId, destination)
+                renderPdfPage(getApplication(), Uri.fromFile(file))
+            }.onSuccess { bitmap ->
+                _state.update { it.copy(referencePdfBitmap = bitmap, referencePdfLabel = review.label, isReferenceOverlayVisible = true, cloudStatus = "تُعرض طبقة المراجعة ${review.label} فوق المخطط", cloudError = null, isDownloadingCloudPdf = false) }
+            }.onFailure { error ->
+                _state.update { it.copy(cloudStatus = "تعذر فتح طبقة المراجعة؛ بقيت مساحة العمل كما هي", cloudError = error.message ?: "تعذر تحميل المراجعة.", isDownloadingCloudPdf = false) }
+            }
+        }
+    }
+
+    fun toggleReferenceOverlay() {
+        if (_state.value.referencePdfBitmap == null) return
+        _state.update { it.copy(isReferenceOverlayVisible = !it.isReferenceOverlayVisible) }
+    }
+
     fun downloadCloudPdf(projectId: String, document: NativeCloudDocument) {
         val connection = connectionStore.load()
         if (connection == null || connection.isExpired()) {
@@ -502,20 +548,7 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
     fun openPdf(context: Context, uri: Uri, label: String) {
         _state.update { it.copy(isLoadingPlan = true, loadError = null, pdfLabel = label) }
         viewModelScope.launch(Dispatchers.IO) {
-            val result = runCatching {
-                context.contentResolver.openFileDescriptor(uri, "r")?.use { descriptor ->
-                    PdfRenderer(descriptor).use { renderer ->
-                        require(renderer.pageCount > 0) { "لا يحتوي ملف PDF على صفحات." }
-                        renderer.openPage(0).use { page ->
-                            val width = page.width * 2
-                            val height = page.height * 2
-                            Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also { bitmap ->
-                                page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                            }
-                        }
-                    }
-                } ?: error("تعذر قراءة ملف PDF المحدد.")
-            }
+            val result = runCatching { renderPdfPage(context, uri) }
             withContext(Dispatchers.Main) {
                 result.onSuccess { bitmap -> _state.update { current ->
                     val page = current.project.pages.firstOrNull { it.sourceUri == uri.toString() }
@@ -536,6 +569,24 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
         val page = _state.value.project.pages.firstOrNull { it.id == pageId } ?: return
         val sourceUri = page.sourceUri ?: return
         openPdf(context, Uri.parse(sourceUri), page.name)
+    }
+
+    private fun renderPdfPage(context: Context, uri: Uri): Bitmap {
+        val descriptor = if (uri.scheme == "file") {
+            ParcelFileDescriptor.open(File(uri.path ?: error("مسار PDF غير صالح.")), ParcelFileDescriptor.MODE_READ_ONLY)
+        } else {
+            context.contentResolver.openFileDescriptor(uri, "r") ?: error("تعذر قراءة ملف PDF المحدد.")
+        }
+        return descriptor.use {
+            PdfRenderer(it).use { renderer ->
+                require(renderer.pageCount > 0) { "لا يحتوي ملف PDF على صفحات." }
+                renderer.openPage(0).use { page ->
+                    Bitmap.createBitmap(page.width * 2, page.height * 2, Bitmap.Config.ARGB_8888).also { bitmap ->
+                        page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                    }
+                }
+            }
+        }
     }
 
     fun onMotionEvent(event: MotionEvent, planPoint: PlanPoint, screenPoint: Offset) {

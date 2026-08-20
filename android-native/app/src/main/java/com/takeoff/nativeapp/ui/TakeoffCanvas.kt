@@ -46,7 +46,12 @@ fun TakeoffCanvas(
 ) {
     var viewport = remember { IntSize.Zero }
     val bitmap = state.pdfBitmap
+    val referenceBitmap = state.referencePdfBitmap
     val frame = bitmap?.let {
+        val fitted = min(viewport.width / it.width.toFloat(), viewport.height / it.height.toFloat()) * state.zoom
+        PdfFrame(Offset((viewport.width - it.width * fitted) / 2f, (viewport.height - it.height * fitted) / 2f) + state.pan, fitted)
+    }
+    val referenceFrame = referenceBitmap?.let {
         val fitted = min(viewport.width / it.width.toFloat(), viewport.height / it.height.toFloat()) * state.zoom
         PdfFrame(Offset((viewport.width - it.width * fitted) / 2f, (viewport.height - it.height * fitted) / 2f) + state.pan, fitted)
     }
@@ -66,6 +71,9 @@ fun TakeoffCanvas(
             for (y in 0..size.height.toInt() step 48) drawLine(Color(0xFF153A4C), Offset(0f, y.toFloat()), Offset(size.width, y.toFloat()), 1f)
             if (bitmap != null && frame != null) {
                 drawImage(bitmap.asImageBitmap(), dstOffset = IntOffset(frame.origin.x.toInt(), frame.origin.y.toInt()), dstSize = IntSize((bitmap.width * frame.scale).toInt(), (bitmap.height * frame.scale).toInt()))
+                if (referenceBitmap != null && referenceFrame != null && state.isReferenceOverlayVisible) {
+                    drawImage(referenceBitmap.asImageBitmap(), dstOffset = IntOffset(referenceFrame.origin.x.toInt(), referenceFrame.origin.y.toInt()), dstSize = IntSize((referenceBitmap.width * referenceFrame.scale).toInt(), (referenceBitmap.height * referenceFrame.scale).toInt()), alpha = 0.42f)
+                }
                 state.measurements.filter { measurement -> state.layers.firstOrNull { it.id == measurement.layerId }?.visible != false }.forEach { measurement ->
                     val points = measurement.points.map(frame::toScreen)
                     val layerColor = state.layers.firstOrNull { it.id == measurement.layerId }?.let { Color(it.color) } ?: Color(0xFF59C3F5)
@@ -110,6 +118,9 @@ fun TakeoffCanvas(
         }
         Surface(modifier = Modifier.align(androidx.compose.ui.Alignment.TopStart).padding(12.dp), color = Color(0xCC102D3C), shape = MaterialTheme.shapes.medium) {
             Text("${state.selectedTool.label}  •  ${state.measurements.size} عنصر", modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp), color = Color.White, style = MaterialTheme.typography.labelMedium)
+        }
+        if (state.isReferenceOverlayVisible) Surface(modifier = Modifier.align(androidx.compose.ui.Alignment.TopEnd).padding(12.dp), color = Color(0xD6BD6A2E), shape = MaterialTheme.shapes.medium) {
+            Text("مراجعة: ${state.referencePdfLabel ?: "مرجع"}", modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp), color = Color.White, style = MaterialTheme.typography.labelMedium)
         }
     }
 }

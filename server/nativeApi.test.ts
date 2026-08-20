@@ -38,4 +38,18 @@ describe("native API project summaries", () => {
     expect(project).not.toHaveProperty("storageKey");
     expect(project).not.toHaveProperty("storageUrl");
   });
+
+  it("keeps Android summary output limited to project metadata", () => {
+    const [project] = toNativeProjectSummaries([{
+      id: "project-000000000001",
+      name: "مراجعة مخطط",
+      clientName: "عميل",
+      location: "موقع",
+      currency: "SAR",
+      lengthUnit: "m",
+      updatedAt: new Date("2026-08-19T20:00:00.000Z"),
+    }]);
+
+    expect(Object.keys(project).sort()).toEqual(["clientName", "currency", "id", "lengthUnit", "location", "name", "updatedAt"]);
+  });
 });

@@ -390,6 +390,22 @@ export async function listProjectReviews(ownerId: number, projectId: string) {
   return db.select().from(projectReviews).where(eq(projectReviews.projectId, projectId)).orderBy(desc(projectReviews.createdAt));
 }
 
+export async function listNativeProjectReviews(ownerId: number, projectId: string) {
+  const db = await requireOwnedProject(ownerId, projectId);
+  return db.select({
+    id: projectReviews.id,
+    sourcePageId: projectReviews.sourcePageId,
+    referenceDocumentId: projectReviews.referenceDocumentId,
+    label: projectReviews.label,
+    note: projectReviews.note,
+    referenceDocumentName: projectDocuments.originalName,
+    createdAt: projectReviews.createdAt,
+  }).from(projectReviews)
+    .innerJoin(projectDocuments, eq(projectDocuments.id, projectReviews.referenceDocumentId))
+    .where(eq(projectReviews.projectId, projectId))
+    .orderBy(desc(projectReviews.createdAt));
+}
+
 export async function createProjectReview(ownerId: number, projectId: string, input: CreateProjectReviewInput) {
   const db = await requireOwnedProject(ownerId, projectId);
   const [sourcePage] = await db.select({ id: projectPages.id, documentId: projectPages.documentId }).from(projectPages).where(and(eq(projectPages.id, input.sourcePageId), eq(projectPages.projectId, projectId))).limit(1);

@@ -27,6 +27,16 @@ data class NativeCloudDocument(
     val pageCount: Int
 )
 
+data class NativeCloudReview(
+    val id: String,
+    val sourcePageId: String,
+    val referenceDocumentId: String,
+    val label: String,
+    val note: String?,
+    val referenceDocumentName: String,
+    val createdAt: String
+)
+
 data class NativeDeviceConnection(
     val endpoint: String,
     val token: String,
@@ -136,6 +146,24 @@ class NativeCloudApi {
             for (index in 0 until documents.length()) {
                 val document = documents.getJSONObject(index)
                 add(NativeCloudDocument(document.getString("id"), document.getString("originalName"), document.getLong("byteSize"), document.getInt("pageCount")))
+            }
+        }
+    }
+
+    fun listReviews(connection: NativeDeviceConnection, projectId: String): List<NativeCloudReview> {
+        val reviews = request(connection, "/api/native/v1/projects/$projectId/reviews").getJSONArray("reviews")
+        return buildList {
+            for (index in 0 until reviews.length()) {
+                val review = reviews.getJSONObject(index)
+                add(NativeCloudReview(
+                    id = review.getString("id"),
+                    sourcePageId = review.getString("sourcePageId"),
+                    referenceDocumentId = review.getString("referenceDocumentId"),
+                    label = review.getString("label"),
+                    note = review.optString("note").ifBlank { null },
+                    referenceDocumentName = review.getString("referenceDocumentName"),
+                    createdAt = review.getString("createdAt")
+                ))
             }
         }
     }
