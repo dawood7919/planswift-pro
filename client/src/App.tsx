@@ -2,26 +2,36 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
+import { lazy, Suspense } from "react";
 import ErrorBoundary from "./components/ErrorBoundary";
 import DashboardLayout from "./components/DashboardLayout";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 import ProjectsPage from "./pages/ProjectsPage";
-import ProjectPage from "./pages/ProjectPage";
-import WorkspacePage from "./pages/WorkspacePage";
+
+// The plan viewer and the project shell pull in pdf.js and the takeoff engine, which the
+// landing page and the projects list never need. Splitting them keeps the first load small.
+const ProjectPage = lazy(() => import("./pages/ProjectPage"));
+const WorkspacePage = lazy(() => import("./pages/WorkspacePage"));
+
+function RouteFallback() {
+  return <div className="workspace-loading">جارٍ التحميل…</div>;
+}
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
   return (
-    <Switch>
-      <Route path={"/"} component={Home} />
-      <Route path={"/projects"}><DashboardLayout><ProjectsPage /></DashboardLayout></Route>
-      <Route path={"/projects/:projectId"}><DashboardLayout><ProjectPage /></DashboardLayout></Route>
-      <Route path={"/workspace/:projectId"}><DashboardLayout><WorkspacePage /></DashboardLayout></Route>
-      <Route path={"/404"} component={NotFound} />
-      {/* Final fallback route */}
-      <Route component={NotFound} />
-    </Switch>
+    <Suspense fallback={<RouteFallback />}>
+      <Switch>
+        <Route path={"/"} component={Home} />
+        <Route path={"/projects"}><DashboardLayout><ProjectsPage /></DashboardLayout></Route>
+        <Route path={"/projects/:projectId"}><DashboardLayout><ProjectPage /></DashboardLayout></Route>
+        <Route path={"/workspace/:projectId"}><DashboardLayout><WorkspacePage /></DashboardLayout></Route>
+        <Route path={"/404"} component={NotFound} />
+        {/* Final fallback route */}
+        <Route component={NotFound} />
+      </Switch>
+    </Suspense>
   );
 }
 

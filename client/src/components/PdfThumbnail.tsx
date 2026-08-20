@@ -1,8 +1,5 @@
-import { useEffect, useRef } from "react";
-import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
-import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-
-GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+import React, { useEffect, useRef } from "react";
+import { acquirePdfDocument } from "@/lib/pdfDocuments";
 
 type PdfThumbnailProps = { url: string; pageNumber: number };
 
@@ -11,19 +8,29 @@ export default function PdfThumbnail({ url, pageNumber }: PdfThumbnailProps) {
 
   useEffect(() => {
     let cancelled = false;
-    const task = getDocument({ url });
-    void task.promise.then(async (document) => {
-      const page = await document.getPage(pageNumber);
-      const viewport = page.getViewport({ scale: 0.22 });
-      const canvas = canvasRef.current;
-      const context = canvas?.getContext("2d");
-      if (!canvas || !context || cancelled) return;
-      canvas.width = Math.ceil(viewport.width);
-      canvas.height = Math.ceil(viewport.height);
-      await page.render({ canvas, canvasContext: context, viewport }).promise;
-      document.cleanup();
-    }).catch(() => undefined);
-    return () => { cancelled = true; void task.destroy(); };
+    let renderTask: { cancel: () => void; promise: Promise<void> } | null = null;
+    // Shared with the plan layer and every other thumbnail of the same drawing.
+    const lease = acquirePdfDocument(url);
+
+    void (async () => {
+      try {
+        const document = await lease.document;
+        const page = await document.getPage(pageNumber);
+        const viewport = page.getViewport({ scale: 0.22 });
+        const canvas = canvasRef.current;
+        const context = canvas?.getContext("2d");
+        if (!canvas || !context || cancelled) return;
+        canvas.width = Math.ceil(viewport.width);
+        canvas.height = Math.ceil(viewport.height);
+        renderTask = page.render({ canvas, canvasContext: context, viewport });
+        await renderTask.promise;
+        page.cleanup?.();
+      } catch {
+        // A thumbnail that cannot be drawn simply stays blank.
+      }
+    })();
+
+    return () => { cancelled = true; renderTask?.cancel(); lease.release(); };
   }, [url, pageNumber]);
 
   return <canvas ref={canvasRef} className="pdf-page-thumbnail" aria-hidden="true" />;

@@ -5,16 +5,19 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const pdfMocks = vi.hoisted(() => ({ getDocument: vi.fn() }));
 vi.mock("pdfjs-dist", () => ({ getDocument: pdfMocks.getDocument, GlobalWorkerOptions: {} }));
+vi.mock("pdfjs-dist/build/pdf.worker.min.mjs?url", () => ({ default: "/pdf.worker.mjs" }));
 
 import PdfPlanLayer from "../client/src/components/PdfPlanLayer";
 import { PDF_RENDER_ERROR_MESSAGE } from "../shared/takeoff-core/pdfStatus";
 import { createPageViewport } from "../shared/takeoff-core/viewport";
+import { clearPdfDocumentCache } from "../client/src/lib/pdfDocuments";
 
 const page = { width: 800, height: 600 };
 const viewport = createPageViewport(page, { width: 1200, height: 900 }, 1.5, { x: 10, y: -5 });
 
 describe("PdfPlanLayer failure recovery", () => {
-  afterEach(() => { pdfMocks.getDocument.mockReset(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+  // Documents are shared process-wide, so each test starts from an empty cache.
+  afterEach(() => { clearPdfDocumentCache(); pdfMocks.getDocument.mockReset(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
   it("renders the actual error overlay and retries after a PDF load failure", async () => {
     pdfMocks.getDocument.mockImplementation(() => ({ promise: Promise.reject(new Error("load failed")), destroy: vi.fn() }));
@@ -29,8 +32,8 @@ describe("PdfPlanLayer failure recovery", () => {
     const cleanup = vi.fn();
     pdfMocks.getDocument.mockImplementation(() => ({
       promise: Promise.resolve({
-        getPage: vi.fn(() => Promise.resolve({ getViewport: vi.fn(({ scale }: { scale: number }) => ({ width: page.width * scale, height: page.height * scale })), render: pageRender })),
-        cleanup,
+        getPage: vi.fn(() => Promise.resolve({ getViewport: vi.fn(({ scale }: { scale: number }) => ({ width: page.width * scale, height: page.height * scale })), render: pageRender, cleanup })),
+        cleanup: vi.fn(),
       }),
       destroy: vi.fn(),
     }));

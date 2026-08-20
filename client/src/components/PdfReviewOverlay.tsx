@@ -1,9 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
-import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { isMeasuredViewport, type PageSize, type Viewport } from "@shared/takeoff-core/viewport";
-
-GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+import { acquirePdfDocument } from "@/lib/pdfDocuments";
 
 type PdfLayer = { url: string; pageNumber: number; tone: "reference" | "current" };
 
@@ -26,12 +23,12 @@ function ReviewCanvas({ layer, page, viewport }: { layer: PdfLayer; page: PageSi
 
   useEffect(() => {
     let cancelled = false;
-    const task = getDocument({ url: layer.url });
+    const lease = acquirePdfDocument(layer.url);
     let renderTask: { cancel: () => void; promise: Promise<void> } | null = null;
     async function render() {
       try {
         setFailed(false);
-        const document = await task.promise;
+        const document = await lease.document;
         const pdfPage = await document.getPage(layer.pageNumber);
         const pdfViewport = pdfPage.getViewport({ scale: 1.65 });
         const canvas = canvasRef.current;
@@ -41,14 +38,14 @@ function ReviewCanvas({ layer, page, viewport }: { layer: PdfLayer; page: PageSi
         canvas.height = Math.ceil(pdfViewport.height);
         renderTask = pdfPage.render({ canvas, canvasContext: context, viewport: pdfViewport });
         await renderTask.promise;
-        document.cleanup();
+        pdfPage.cleanup?.();
         if (!cancelled) setSize({ width: pdfViewport.width / 1.65, height: pdfViewport.height / 1.65 });
       } catch {
         if (!cancelled) setFailed(true);
       }
     }
     void render();
-    return () => { cancelled = true; renderTask?.cancel(); task.destroy(); };
+    return () => { cancelled = true; renderTask?.cancel(); lease.release(); };
   }, [layer.pageNumber, layer.url]);
 
   if (failed) return null;

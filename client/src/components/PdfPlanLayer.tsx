@@ -1,11 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
-import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
-import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { isMeasuredViewport, type PageSize, type Viewport } from "@shared/takeoff-core/viewport";
 import { getPdfRenderStatus, PDF_RENDER_ERROR_MESSAGE } from "@shared/takeoff-core/pdfStatus";
+import { acquirePdfDocument } from "@/lib/pdfDocuments";
 import { PdfPlanStatusOverlay } from "./PdfPlanStatusOverlay";
-
-GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 type PdfPlanLayerProps = {
   url: string;
@@ -18,15 +15,6 @@ type PdfPlanLayerProps = {
 /** Beyond this the backing store risks exceeding the browser's canvas limit. */
 const MAX_CANVAS_PIXELS = 16_700_000;
 const RERENDER_DEBOUNCE_MS = 120;
-
-export function getPdfPageCount(buffer: ArrayBuffer) {
-  const task = getDocument({ data: new Uint8Array(buffer) });
-  return task.promise.then((document) => {
-    const count = document.numPages;
-    document.cleanup();
-    return count;
-  });
-}
 
 /**
  * Chooses the rasterisation scale, honouring device pixel ratio but never asking for a
@@ -58,15 +46,14 @@ export default function PdfPlanLayer({ url, pageNumber, page, viewport }: PdfPla
   useEffect(() => {
     if (!measured) return;
     let cancelled = false;
-    let task: ReturnType<typeof getDocument> | null = null;
     let renderTask: { cancel: () => void; promise: Promise<void> } | null = null;
+    const lease = acquirePdfDocument(url);
 
     async function renderPage() {
       try {
         setError(null);
         setIsRendering(true);
-        task = getDocument({ url });
-        const document = await task.promise;
+        const document = await lease.document;
         const pdfPage = await document.getPage(pageNumber);
         const scale = rasterScale(page, Math.pow(2, rasterStep / 2));
         const pdfViewport = pdfPage.getViewport({ scale });
@@ -77,7 +64,7 @@ export default function PdfPlanLayer({ url, pageNumber, page, viewport }: PdfPla
         canvas.height = Math.ceil(pdfViewport.height);
         renderTask = pdfPage.render({ canvas, canvasContext: context, viewport: pdfViewport });
         await renderTask.promise;
-        document.cleanup();
+        pdfPage.cleanup?.();
         if (!cancelled) setIsRendering(false);
       } catch {
         if (!cancelled) { setError(PDF_RENDER_ERROR_MESSAGE); setIsRendering(false); }
@@ -89,7 +76,7 @@ export default function PdfPlanLayer({ url, pageNumber, page, viewport }: PdfPla
       cancelled = true;
       // The cancelled flag alone does not stop pdf.js painting into a reused canvas.
       renderTask?.cancel();
-      task?.destroy();
+      lease.release();
     };
   }, [url, pageNumber, renderAttempt, rasterStep, page.width, page.height, measured]);
 
