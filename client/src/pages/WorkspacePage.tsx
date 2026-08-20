@@ -123,97 +123,97 @@ export default function WorkspacePage() {
     onError: (error) => toast.error(error.message || "تعذر إنشاء رمز Android."),
   });
   const saveWorkspace = trpc.projects.saveWorkspace.useMutation({
-    onSuccess: () => { setPendingCommands([]); toast.success("حُفظ المشروع مع صفحة القياس وعناصره."); utils.projects.get.invalidate(projectId); },
-    onError: (error) => toast.error(error.message || "تعذر حفظ المشروع."),
+    onSuccess: () => { setPendingCommands([]); toast.success(t("workspace.toast.workspaceSaved")); utils.projects.get.invalidate(projectId); },
+    onError: (error) => toast.error(error.message || t("workspace.toast.workspaceSaveFailed")),
   });
   const addBlankPage = trpc.projects.addBlankPage.useMutation({
-    onSuccess: (createdPage) => { setActivePageId(createdPage.id); utils.projects.get.invalidate(projectId); toast.success("أُضيفت صفحة رسم فارغة."); },
-    onError: (error) => toast.error(error.message || "تعذرت إضافة الصفحة."),
+    onSuccess: (createdPage) => { setActivePageId(createdPage.id); utils.projects.get.invalidate(projectId); toast.success(t("workspace.toast.blankPageAdded")); },
+    onError: (error) => toast.error(error.message || t("workspace.toast.pageAddFailed")),
   });
   const renamePage = trpc.projects.renamePage.useMutation({
-    onSuccess: () => { setIsRenamingPage(false); utils.projects.get.invalidate(projectId); toast.success("تمت إعادة تسمية الصفحة."); },
-    onError: (error) => toast.error(error.message || "تعذرت إعادة تسمية الصفحة."),
+    onSuccess: () => { setIsRenamingPage(false); utils.projects.get.invalidate(projectId); toast.success(t("workspace.toast.pageRenamed")); },
+    onError: (error) => toast.error(error.message || t("workspace.toast.pageRenameFailed")),
   });
   const deletePage = trpc.projects.deletePage.useMutation({
-    onSuccess: (result) => { setActivePageId(result.nextPageId); utils.projects.get.invalidate(projectId); toast.success("حُذفت الصفحة وعناصر قياسها."); },
-    onError: (error) => toast.error(error.message === "LAST_PAGE_REQUIRED" ? "يجب أن يبقى في المشروع صفحة واحدة على الأقل." : error.message || "تعذر حذف الصفحة."),
+    onSuccess: (result) => { setActivePageId(result.nextPageId); utils.projects.get.invalidate(projectId); toast.success(t("workspace.toast.pageDeleted")); },
+    onError: (error) => toast.error(error.message === "LAST_PAGE_REQUIRED" ? t("workspace.toast.lastPageRequired") : error.message || t("workspace.toast.pageDeleteFailed")),
   });
   const convertLegacyPageGeometry = trpc.projects.convertLegacyPageGeometry.useMutation({
-    onSuccess: () => { setCalibration(null); setSelectedId(null); setSelectedIds(new Set()); utils.projects.get.invalidate(projectId); toast.success("حُولت الصفحة إلى إحداثيات PDF. أعد المعايرة قبل اعتماد أي كمية."); },
-    onError: (error) => toast.error(error.message || "تعذر تحويل الصفحة القديمة."),
+    onSuccess: () => { setCalibration(null); setSelectedId(null); setSelectedIds(new Set()); utils.projects.get.invalidate(projectId); toast.success(t("workspace.toast.legacyGeometryConverted")); },
+    onError: (error) => toast.error(error.message || t("workspace.toast.legacyGeometryConvertFailed")),
   });
   const createScaleContext = trpc.projects.createScaleContext.useMutation({
-    onSuccess: (context) => { setCalibration({ drawingDistance: Number(context.drawingDistance), worldDistance: Number(context.worldDistance), unit: context.unit as CalibrationScale["unit"], factor: Number(context.worldDistance) / Number(context.drawingDistance) }); setScaleContextName(""); utils.projects.get.invalidate(projectId); toast.success("حُفظ سياق المقياس وجرى تفعيله."); },
-    onError: (error) => toast.error(error.message || "تعذر حفظ سياق المقياس."),
+    onSuccess: (context) => { setCalibration({ drawingDistance: Number(context.drawingDistance), worldDistance: Number(context.worldDistance), unit: context.unit as CalibrationScale["unit"], factor: Number(context.worldDistance) / Number(context.drawingDistance) }); setScaleContextName(""); utils.projects.get.invalidate(projectId); toast.success(t("workspace.toast.scaleContextCreated")); },
+    onError: (error) => toast.error(error.message || t("workspace.toast.scaleContextCreateFailed")),
   });
   const activateScaleContext = trpc.projects.activateScaleContext.useMutation({
-    onSuccess: (context) => { setCalibration({ drawingDistance: Number(context.drawingDistance), worldDistance: Number(context.worldDistance), unit: context.unit as CalibrationScale["unit"], factor: Number(context.worldDistance) / Number(context.drawingDistance) }); utils.projects.get.invalidate(projectId); toast.success("تم تفعيل سياق المقياس."); },
-    onError: (error) => toast.error(error.message || "تعذر تفعيل سياق المقياس."),
+    onSuccess: (context) => { setCalibration({ drawingDistance: Number(context.drawingDistance), worldDistance: Number(context.worldDistance), unit: context.unit as CalibrationScale["unit"], factor: Number(context.worldDistance) / Number(context.drawingDistance) }); utils.projects.get.invalidate(projectId); toast.success(t("workspace.toast.scaleContextActivated")); },
+    onError: (error) => toast.error(error.message || t("workspace.toast.scaleContextActivateFailed")),
   });
   const deleteScaleContext = trpc.projects.deleteScaleContext.useMutation({
-    onSuccess: () => { utils.projects.get.invalidate(projectId); toast.success("حُذف سياق المقياس."); },
-    onError: (error) => toast.error(error.message || "تعذر حذف سياق المقياس."),
+    onSuccess: () => { utils.projects.get.invalidate(projectId); toast.success(t("workspace.toast.scaleContextDeleted")); },
+    onError: (error) => toast.error(error.message || t("workspace.toast.scaleContextDeleteFailed")),
   });
   const createReview = trpc.projects.createReview.useMutation({
-    onSuccess: (review) => { setReviewDocumentId(review.referenceDocumentId); utils.projects.get.invalidate(projectId); toast.success("حُفظت المراجعة المرجعية في سجل المشروع."); },
-    onError: (error) => toast.error(error.message === "REVIEW_ALREADY_EXISTS" ? "هذه المراجعة محفوظة بالفعل لهذه الصفحة." : error.message || "تعذر حفظ المراجعة."),
+    onSuccess: (review) => { setReviewDocumentId(review.referenceDocumentId); utils.projects.get.invalidate(projectId); toast.success(t("workspace.toast.reviewCreated")); },
+    onError: (error) => toast.error(error.message === "REVIEW_ALREADY_EXISTS" ? t("workspace.toast.reviewExists") : error.message || t("workspace.toast.reviewCreateFailed")),
   });
   const deleteReview = trpc.projects.deleteReview.useMutation({
-    onSuccess: () => { utils.projects.get.invalidate(projectId); toast.success("حُذفت المراجعة المحفوظة."); },
-    onError: (error) => toast.error(error.message || "تعذر حذف المراجعة."),
+    onSuccess: () => { utils.projects.get.invalidate(projectId); toast.success(t("workspace.toast.reviewDeleted")); },
+    onError: (error) => toast.error(error.message || t("workspace.toast.reviewDeleteFailed")),
   });
   const createAnnotation = trpc.projects.createAnnotation.useMutation({
-    onSuccess: () => { setAnnotationText(""); utils.projects.get.invalidate(projectId); toast.success("حُفظت الملاحظة على المخطط."); },
-    onError: (error) => toast.error(error.message || "تعذر حفظ الملاحظة."),
+    onSuccess: () => { setAnnotationText(""); utils.projects.get.invalidate(projectId); toast.success(t("workspace.toast.annotationCreated")); },
+    onError: (error) => toast.error(error.message || t("workspace.toast.annotationCreateFailed")),
   });
   const deleteAnnotation = trpc.projects.deleteAnnotation.useMutation({
-    onSuccess: () => { utils.projects.get.invalidate(projectId); toast.success("حُذفت الملاحظة."); },
-    onError: (error) => toast.error(error.message || "تعذر حذف الملاحظة."),
+    onSuccess: () => { utils.projects.get.invalidate(projectId); toast.success(t("workspace.toast.annotationDeleted")); },
+    onError: (error) => toast.error(error.message || t("workspace.toast.annotationDeleteFailed")),
   });
   const reorderPages = trpc.projects.reorderPages.useMutation({
     onSuccess: () => { utils.projects.get.invalidate(projectId); },
-    onError: (error) => toast.error(error.message || "تعذر إعادة ترتيب الصفحات."),
+    onError: (error) => toast.error(error.message || t("workspace.toast.pagesReorderFailed")),
   });
   const exportProject = trpc.projects.exportProjectFile.useMutation({
-    onError: (error) => toast.error(error.message || "تعذر تصدير نسخة المشروع."),
+    onError: (error) => toast.error(error.message || t("workspace.toast.projectExportFailed")),
   });
   const createVersion = trpc.projects.createVersion.useMutation({
-    onSuccess: () => { setVersionLabel(""); utils.projects.get.invalidate(projectId); toast.success("حُفظت لقطة الإصدار للمشروع."); },
-    onError: (error) => toast.error(error.message || "تعذر حفظ لقطة الإصدار."),
+    onSuccess: () => { setVersionLabel(""); utils.projects.get.invalidate(projectId); toast.success(t("workspace.toast.versionCreated")); },
+    onError: (error) => toast.error(error.message || t("workspace.toast.versionCreateFailed")),
   });
   const restoreVersion = trpc.projects.restoreVersion.useMutation({
-    onSuccess: (restored) => { toast.success("أُنشئ مشروع جديد من لقطة الإصدار؛ لم يُستبدل المشروع المصدر."); setLocation(`/workspace/${restored.id}`); },
-    onError: (error) => toast.error(error.message || "تعذرت استعادة لقطة الإصدار."),
+    onSuccess: (restored) => { toast.success(t("workspace.toast.versionRestoredAsProject")); setLocation(`/workspace/${restored.id}`); },
+    onError: (error) => toast.error(error.message || t("workspace.toast.versionRestoreFailed")),
   });
   const templatesQuery = trpc.templates.list.useQuery();
   const templateFoldersQuery = trpc.templates.folders.list.useQuery();
   const createTemplate = trpc.templates.create.useMutation({
-    onSuccess: () => { utils.templates.list.invalidate(); setTemplateName(""); setTemplateDependencyIds([]); toast.success("تم حفظ القالب."); },
-    onError: (error) => toast.error(error.message || "تعذر حفظ القالب."),
+    onSuccess: () => { utils.templates.list.invalidate(); setTemplateName(""); setTemplateDependencyIds([]); toast.success(t("workspace.toast.templateCreated")); },
+    onError: (error) => toast.error(error.message || t("workspace.toast.templateCreateFailed")),
   });
   const updateTemplate = trpc.templates.update.useMutation({
-    onSuccess: () => { utils.templates.list.invalidate(); setEditingTemplateId(null); setTemplateName(""); setTemplateDependencyIds([]); toast.success("تم تحديث القالب ومراجعه."); },
-    onError: (error) => toast.error(error.message === "TEMPLATE_DEPENDENCY_IN_USE" ? "لا يمكن إزالة هذا القالب لأنه مرجع لقالب آخر." : error.message || "تعذر تحديث القالب."),
+    onSuccess: () => { utils.templates.list.invalidate(); setEditingTemplateId(null); setTemplateName(""); setTemplateDependencyIds([]); toast.success(t("workspace.toast.templateUpdated")); },
+    onError: (error) => toast.error(error.message === "TEMPLATE_DEPENDENCY_IN_USE" ? t("workspace.toast.templateDependencyInUse") : error.message || t("workspace.toast.templateUpdateFailed")),
   });
   const deleteTemplate = trpc.templates.delete.useMutation({
-    onSuccess: () => { utils.templates.list.invalidate(); toast.success("حُذف القالب."); },
-    onError: (error) => toast.error(error.message || "تعذر حذف القالب."),
+    onSuccess: () => { utils.templates.list.invalidate(); toast.success(t("workspace.toast.templateDeleted")); },
+    onError: (error) => toast.error(error.message || t("workspace.toast.templateDeleteFailed")),
   });
   const createTemplateFolder = trpc.templates.folders.create.useMutation({
-    onSuccess: () => { utils.templates.folders.list.invalidate(); setTemplateFolderName(""); toast.success("حُفظ مجلد المكتبة."); },
-    onError: (error) => toast.error(error.message || "تعذر حفظ المجلد."),
+    onSuccess: () => { utils.templates.folders.list.invalidate(); setTemplateFolderName(""); toast.success(t("workspace.toast.templateFolderCreated")); },
+    onError: (error) => toast.error(error.message || t("workspace.toast.templateFolderCreateFailed")),
   });
   const deleteTemplateFolder = trpc.templates.folders.delete.useMutation({
-    onSuccess: () => { utils.templates.folders.list.invalidate(); setTemplateFolderId(""); toast.success("حُذف مجلد المكتبة."); },
-    onError: (error) => toast.error(error.message === "TEMPLATE_FOLDER_IN_USE" ? "انقل القوالب من المجلد قبل حذفه." : error.message || "تعذر حذف المجلد."),
+    onSuccess: () => { utils.templates.folders.list.invalidate(); setTemplateFolderId(""); toast.success(t("workspace.toast.templateFolderDeleted")); },
+    onError: (error) => toast.error(error.message === "TEMPLATE_FOLDER_IN_USE" ? t("workspace.toast.templateFolderInUse") : error.message || t("workspace.toast.templateFolderDeleteFailed")),
   });
   const createTemplateCostItem = trpc.templates.costItems.create.useMutation({
-    onSuccess: () => { utils.templates.list.invalidate(); setCostItemName(""); setCostItemQuantityFormula("quantity"); setCostItemRate("0"); setCostItemWastePercent("0"); toast.success("أُضيف بند التكلفة إلى القالب."); },
-    onError: (error) => toast.error(error.message || "تعذر حفظ بند التكلفة."),
+    onSuccess: () => { utils.templates.list.invalidate(); setCostItemName(""); setCostItemQuantityFormula("quantity"); setCostItemRate("0"); setCostItemWastePercent("0"); toast.success(t("workspace.toast.costItemCreated")); },
+    onError: (error) => toast.error(error.message || t("workspace.toast.costItemCreateFailed")),
   });
   const deleteTemplateCostItem = trpc.templates.costItems.delete.useMutation({
-    onSuccess: () => { utils.templates.list.invalidate(); toast.success("حُذف بند التكلفة."); },
-    onError: (error) => toast.error(error.message || "تعذر حذف بند التكلفة."),
+    onSuccess: () => { utils.templates.list.invalidate(); toast.success(t("workspace.toast.costItemDeleted")); },
+    onError: (error) => toast.error(error.message || t("workspace.toast.costItemDeleteFailed")),
   });
 
   const [tool, setTool] = useState<Tool>("SELECT");
