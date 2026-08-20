@@ -36,18 +36,25 @@ data class CostBreakdownEntry(
 data class EstimateResult(val quantity: Double, val cost: Double, val entries: List<CostBreakdownEntry>)
 
 object EstimationEngine {
+    const val MEASUREMENT_QUANTITY_INVALID = "MEASUREMENT_QUANTITY_INVALID"
+    const val MULTIPLIER_INVALID = "MULTIPLIER_INVALID"
+    const val TEMPLATE_RATE_INVALID = "TEMPLATE_RATE_INVALID"
+    const val COST_ITEM_QUANTITY_FACTOR_INVALID = "COST_ITEM_QUANTITY_FACTOR_INVALID"
+    const val COST_ITEM_RATE_INVALID = "COST_ITEM_RATE_INVALID"
+    const val COST_ITEM_WASTE_INVALID = "COST_ITEM_WASTE_INVALID"
+
     fun estimate(template: NativeTemplate, measurementQuantity: Double, multiplier: Double = 1.0): EstimateResult {
-        require(measurementQuantity.isFinite() && measurementQuantity >= 0) { "الكمية يجب أن تكون عدداً موجباً أو صفراً." }
-        require(multiplier.isFinite() && multiplier > 0) { "عامل التكرار يجب أن يكون موجباً." }
-        require(template.rate.isFinite() && template.rate >= 0) { "سعر القالب غير صالح." }
+        require(measurementQuantity.isFinite() && measurementQuantity >= 0) { MEASUREMENT_QUANTITY_INVALID }
+        require(multiplier.isFinite() && multiplier > 0) { MULTIPLIER_INVALID }
+        require(template.rate.isFinite() && template.rate >= 0) { TEMPLATE_RATE_INVALID }
 
         val quantity = measurementQuantity * multiplier
         val entries = buildList {
             if (template.rate > 0) add(CostBreakdownEntry(null, template.name, null, quantity, template.unit, template.rate, quantity * template.rate))
             template.costItems.forEach { item ->
-                require(item.quantityFactor.isFinite() && item.quantityFactor >= 0) { "عامل كمية ${item.name} غير صالح." }
-                require(item.rate.isFinite() && item.rate >= 0) { "سعر ${item.name} غير صالح." }
-                require(item.wastePercent.isFinite() && item.wastePercent >= 0) { "هالك ${item.name} غير صالح." }
+                require(item.quantityFactor.isFinite() && item.quantityFactor >= 0) { COST_ITEM_QUANTITY_FACTOR_INVALID }
+                require(item.rate.isFinite() && item.rate >= 0) { COST_ITEM_RATE_INVALID }
+                require(item.wastePercent.isFinite() && item.wastePercent >= 0) { COST_ITEM_WASTE_INVALID }
                 val itemQuantity = quantity * item.quantityFactor * (1.0 + item.wastePercent / 100.0)
                 add(CostBreakdownEntry(item.id, item.name, item.kind, itemQuantity, item.unit, item.rate, itemQuantity * item.rate))
             }

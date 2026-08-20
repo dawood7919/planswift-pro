@@ -4,6 +4,13 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class EstimationEngineTest {
+    private fun requireMessage(block: () -> Unit): String = try {
+        block()
+        throw AssertionError("Expected IllegalArgumentException")
+    } catch (error: IllegalArgumentException) {
+        error.message.orEmpty()
+    }
+
     @Test
     fun `estimate applies multiplier, item quantity factor, and waste deterministically`() {
         val template = NativeTemplate(
@@ -22,8 +29,11 @@ class EstimationEngineTest {
         assertEquals(166.0, result.cost, 0.00001)
     }
 
-    @Test(expected = IllegalArgumentException::class)
-    fun `estimate rejects a non positive multiplier`() {
-        EstimationEngine.estimate(NativeTemplate(1L, TemplateKind.PART, "اختبار", "m", 1.0), 1.0, 0.0)
+    @Test
+    fun `estimate rejects a non positive multiplier with a neutral code`() {
+        assertEquals(
+            EstimationEngine.MULTIPLIER_INVALID,
+            requireMessage { EstimationEngine.estimate(NativeTemplate(1L, TemplateKind.PART, "اختبار", "m", 1.0), 1.0, 0.0) }
+        )
     }
 }
