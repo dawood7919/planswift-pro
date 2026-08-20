@@ -207,4 +207,21 @@ describe("WorkspacePage search integration", () => {
     fireEvent.click(within(view.container.querySelector(".group-selection-card")!).getByRole("button", { name: /حذف المجموعة/ }));
     expect(root.getByText(/2 عناصر ملتزمة/)).toBeTruthy();
   });
+
+  it("keeps both side panels reachable at tablet width instead of removing them", () => {
+    const view = render(createElement(WorkspacePage));
+    const root = within(view.container);
+    const shell = view.container.querySelector(".takeoff-workspace")!;
+
+    // Both panels stay mounted at every width; only their presentation changes.
+    expect(view.container.querySelector(".inspector-panel")).toBeTruthy();
+    expect(view.container.querySelector(".page-navigator")).toBeTruthy();
+    expect(shell.getAttribute("data-inspector")).toBe("closed");
+    expect(shell.getAttribute("data-navigator")).toBe("closed");
+
+    fireEvent.click(root.getByRole("button", { name: /المفتش/ }));
+    expect(shell.getAttribute("data-inspector")).toBe("open");
+    fireEvent.click(root.getByRole("button", { name: "فتح لوحة الصفحات" }));
+    expect(shell.getAttribute("data-navigator")).toBe("open");
+  });
 });
