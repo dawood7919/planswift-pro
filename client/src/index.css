@@ -200,3 +200,16 @@ button { font: inherit; }
 .takeoff-kind-dot { width: 9px; height: 9px; border-radius: 999px; background: var(--area); }.takeoff-kind-roof_area { background: var(--roof-area); }.takeoff-kind-volume { background: var(--volume); }.takeoff-kind-linear { background: var(--linear); }.takeoff-kind-segment { background: var(--segment); }.takeoff-kind-count { background: var(--count); }
 .estimate-tab { display: grid; justify-items: start; max-width: 560px; gap: 12px; padding: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }.estimate-tab > svg { color: var(--accent); }.estimate-tab dl { display: grid; grid-template-columns: repeat(2, minmax(120px, 1fr)); width: 100%; gap: 10px; margin: 5px 0; }.estimate-tab dl div { padding: 11px; background: var(--surface-alt); border-radius: 8px; }.estimate-tab dt { color: var(--text-dim); font-size: 11px; }.estimate-tab dd { margin: 4px 0 0; color: var(--text); font-size: 20px; font-variant-numeric: tabular-nums; }
 @media (max-width: 640px) { .project-shell-header { padding-inline: 14px; }.project-tabs, .project-tab-surface { padding-inline: 14px; }.project-page-card { grid-template-columns: 56px minmax(0, 1fr); }.project-page-action { grid-column: 1 / -1; width: 100%; }.project-page-preview { height: 56px; }.estimate-tab { padding: 18px; } }
+
+/* High-contrast completion for legacy workspace chrome. */
+.takeoff-workspace .topbar-actions button { color: var(--text-dim); background: transparent; border-color: transparent; }
+.takeoff-workspace .topbar-actions button:hover, .takeoff-workspace .topbar-actions button[data-state="on"] { color: var(--text); background: var(--surface-hi); border-color: var(--border-hi); }
+.takeoff-workspace .workspace-preferences { color: var(--text-dim); background: var(--surface); border-color: var(--border); }
+.takeoff-workspace .workspace-preferences select { color: var(--text); background: var(--surface-alt); border-color: var(--border-hi); }
+.ps-template-browser, .ps-browser-heading, .ps-browser-tabs, .ps-browser-tabs .active { color: var(--text); background: var(--surface); border-color: var(--border); }
+.ps-browser-tabs span, .ps-template-tree small, .ps-template-tree em, .ps-template-tree p { color: var(--text-dim); }
+.ps-template-tree > button { color: var(--text); text-align: start; }
+.ps-template-tree > button:hover, .ps-template-tree > button.active { background: var(--surface-hi); }
+.takeoff-workspace .inspector-panel .annotation-card, .takeoff-workspace .inspector-panel .versions-card, .takeoff-workspace .inspector-panel .review-history-card, .takeoff-workspace .inspector-panel .estimate-library-card, .takeoff-workspace .inspector-panel .cost-audit-card, .takeoff-workspace .inspector-panel .multiplier-card { border-color: var(--border); }
+.takeoff-workspace .inspector-panel h2, .takeoff-workspace .inspector-panel h3, .takeoff-workspace .inspector-panel p, .takeoff-workspace .inspector-panel label, .takeoff-workspace .inspector-panel small { color: var(--text-dim); }
+.takeoff-workspace .inspector-panel input, .takeoff-workspace .inspector-panel select { color: var(--text); background: var(--surface-alt); border-color: var(--border); }
