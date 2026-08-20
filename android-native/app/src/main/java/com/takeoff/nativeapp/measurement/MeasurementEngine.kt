@@ -6,6 +6,14 @@ import kotlin.math.sqrt
 data class PlanPoint(val x: Float, val y: Float)
 
 object MeasurementEngine {
+    const val CUTOUT_AREA_EXCEEDS_OUTER = "CUTOUT_AREA_EXCEEDS_OUTER"
+    const val ORIGINAL_OUTER_AREA_INVALID = "ORIGINAL_OUTER_AREA_INVALID"
+    const val ORIGINAL_MEASURED_VALUE_INVALID = "ORIGINAL_MEASURED_VALUE_INVALID"
+    const val ADJUSTED_FLAT_AREA_INVALID = "ADJUSTED_FLAT_AREA_INVALID"
+    const val ROOF_FLAT_AREA_INVALID = "ROOF_FLAT_AREA_INVALID"
+    const val ROOF_SLOPE_INVALID = "ROOF_SLOPE_INVALID"
+    const val VOLUME_INPUT_INVALID = "VOLUME_INPUT_INVALID"
+
     fun polylineLength(points: List<PlanPoint>): Double {
         if (points.size < 2) return 0.0
         return points.zipWithNext().sumOf { (from, to) -> hypot((to.x - from.x).toDouble(), (to.y - from.y).toDouble()) }
@@ -25,14 +33,14 @@ object MeasurementEngine {
     fun areaWithCutouts(outer: List<PlanPoint>, cutouts: List<List<PlanPoint>>): Double {
         val outerArea = polygonArea(outer)
         val cutoutArea = cutouts.sumOf(::polygonArea)
-        require(cutoutArea <= outerArea) { "مساحة الفتحات لا يمكن أن تتجاوز المساحة الأساسية." }
+        require(cutoutArea <= outerArea) { CUTOUT_AREA_EXCEEDS_OUTER }
         return outerArea - cutoutArea
     }
 
     fun adjustAreaValueProportionally(originalOuterArea: Double, originalMeasuredValue: Double, adjustedFlatArea: Double): Double {
-        require(originalOuterArea.isFinite() && originalOuterArea > 0) { "المساحة الأساسية غير صالحة." }
-        require(originalMeasuredValue.isFinite() && originalMeasuredValue >= 0) { "قيمة القياس الأصلية غير صالحة." }
-        require(adjustedFlatArea.isFinite() && adjustedFlatArea >= 0) { "المساحة الصافية غير صالحة." }
+        require(originalOuterArea.isFinite() && originalOuterArea > 0) { ORIGINAL_OUTER_AREA_INVALID }
+        require(originalMeasuredValue.isFinite() && originalMeasuredValue >= 0) { ORIGINAL_MEASURED_VALUE_INVALID }
+        require(adjustedFlatArea.isFinite() && adjustedFlatArea >= 0) { ADJUSTED_FLAT_AREA_INVALID }
         return originalMeasuredValue * adjustedFlatArea / originalOuterArea
     }
 
@@ -56,13 +64,13 @@ object MeasurementEngine {
     fun calibratedArea(drawingArea: Double, factor: Double): Double = drawingArea * factor * factor
 
     fun roofArea(flatArea: Double, rise: Double, run: Double): Double {
-        require(flatArea.isFinite() && flatArea >= 0) { "المساحة الأفقية غير صالحة." }
-        require(rise.isFinite() && rise >= 0 && run.isFinite() && run > 0) { "نسبة الميل يجب أن تكون موجبة." }
+        require(flatArea.isFinite() && flatArea >= 0) { ROOF_FLAT_AREA_INVALID }
+        require(rise.isFinite() && rise >= 0 && run.isFinite() && run > 0) { ROOF_SLOPE_INVALID }
         return flatArea * sqrt(1.0 + (rise / run) * (rise / run))
     }
 
     fun volume(baseArea: Double, depth: Double): Double {
-        require(baseArea.isFinite() && baseArea >= 0 && depth.isFinite() && depth > 0) { "المساحة أو العمق غير صالح." }
+        require(baseArea.isFinite() && baseArea >= 0 && depth.isFinite() && depth > 0) { VOLUME_INPUT_INVALID }
         return baseArea * depth
     }
 

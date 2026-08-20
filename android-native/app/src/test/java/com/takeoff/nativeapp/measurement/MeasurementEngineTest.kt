@@ -6,6 +6,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MeasurementEngineTest {
+    private fun requireMessage(block: () -> Unit): String = try {
+        block()
+        throw AssertionError("Expected IllegalArgumentException")
+    } catch (error: IllegalArgumentException) {
+        error.message.orEmpty()
+    }
+
     @Test
     fun `polyline length is deterministic`() {
         val value = MeasurementEngine.polylineLength(listOf(PlanPoint(0f, 0f), PlanPoint(3f, 4f), PlanPoint(6f, 8f)))
@@ -67,5 +74,15 @@ class MeasurementEngineTest {
             adjustedFlatArea = 96.0
         )
         assertEquals(MeasurementEngine.roofArea(flatArea = 96.0, rise = 1.0, run = 2.0), netValue, 0.00001)
+    }
+
+    @Test
+    fun `invalid measurement inputs expose language neutral error codes`() {
+        val outer = listOf(PlanPoint(0f, 0f), PlanPoint(2f, 0f), PlanPoint(2f, 2f), PlanPoint(0f, 2f))
+        val oversized = listOf(PlanPoint(0f, 0f), PlanPoint(4f, 0f), PlanPoint(4f, 4f), PlanPoint(0f, 4f))
+
+        assertEquals(MeasurementEngine.CUTOUT_AREA_EXCEEDS_OUTER, requireMessage { MeasurementEngine.areaWithCutouts(outer, listOf(oversized)) })
+        assertEquals(MeasurementEngine.ROOF_SLOPE_INVALID, requireMessage { MeasurementEngine.roofArea(10.0, 1.0, 0.0) })
+        assertEquals(MeasurementEngine.VOLUME_INPUT_INVALID, requireMessage { MeasurementEngine.volume(10.0, 0.0) })
     }
 }
