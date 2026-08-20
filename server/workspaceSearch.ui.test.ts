@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const invalidate = vi.fn();
 const workspace = {
   project: { id: "project-1", name: "مشروع الاختبار", currency: "USD" },
-  pages: [{ id: "page-1", name: "المخطط", backgroundUrl: "/source.pdf", pdfPageNumber: 1, documentId: "document-source", scaleDrawingDistance: null, scaleWorldDistance: null, scaleUnit: null }],
+  pages: [{ id: "page-1", name: "المخطط", backgroundUrl: "/source.pdf", pdfPageNumber: 1, documentId: "document-source", scaleDrawingDistance: null, scaleWorldDistance: null, scaleUnit: null, pageWidth: "1000.0000", pageHeight: "720.0000", pageRotation: 0, geometrySpace: "PAGE_POINTS" }],
   items: [{ id: "item-1", pageId: "page-1", kind: "COUNT", name: "فتحات رئيسية", color: "#f6cf62", geometryJson: JSON.stringify({ marks: [{ x: 120, y: 150 }] }), rate: "0", templateId: null }, { id: "item-2", pageId: "page-1", kind: "COUNT", name: "فتحات ثانوية", color: "#f6cf62", geometryJson: JSON.stringify({ marks: [{ x: 220, y: 150 }] }), rate: "0", templateId: null }],
   commands: [], reviews: [], versions: [{ id: "version-1", label: "قبل التعديل", createdAt: new Date("2026-08-19T00:00:00Z") }], scaleContexts: [{ id: "scale-context-1", pageId: "page-1", name: "مقياس معماري", drawingDistance: "10", worldDistance: "1", unit: "m" }], documents: [{ id: "document-source", originalName: "الأصل.pdf" }, { id: "document-reference", originalName: "مرجع.pdf" }],
 };
@@ -21,12 +21,15 @@ vi.mock("../client/src/lib/trpc", () => ({
     useUtils: () => ({ projects: { get: { invalidate }, }, templates: { list: { invalidate }, folders: { list: { invalidate } } } }),
     projects: {
       get: { useQuery: () => ({ data: workspace, isLoading: false }) },
-      saveWorkspace: { useMutation: () => mutation }, addBlankPage: { useMutation: () => mutation }, renamePage: { useMutation: () => mutation }, deletePage: { useMutation: () => mutation }, reorderPages: { useMutation: () => mutation }, exportProjectFile: { useMutation: () => mutation }, createVersion: { useMutation: () => mutation }, restoreVersion: { useMutation: () => mutation }, createScaleContext: { useMutation: () => mutation }, activateScaleContext: { useMutation: () => mutation }, deleteScaleContext: { useMutation: () => mutation }, createReview: { useMutation: () => mutation }, deleteReview: { useMutation: () => mutation }, createAnnotation: { useMutation: () => mutation }, deleteAnnotation: { useMutation: () => mutation },
+      saveWorkspace: { useMutation: () => mutation }, addBlankPage: { useMutation: () => mutation }, renamePage: { useMutation: () => mutation }, deletePage: { useMutation: () => mutation }, reorderPages: { useMutation: () => mutation }, exportProjectFile: { useMutation: () => mutation }, createVersion: { useMutation: () => mutation }, restoreVersion: { useMutation: () => mutation }, createScaleContext: { useMutation: () => mutation }, activateScaleContext: { useMutation: () => mutation }, deleteScaleContext: { useMutation: () => mutation }, createReview: { useMutation: () => mutation }, deleteReview: { useMutation: () => mutation }, createAnnotation: { useMutation: () => mutation }, deleteAnnotation: { useMutation: () => mutation }, migratePageGeometry: { useMutation: () => mutation },
     },
     auth: { createNativeSession: { useMutation: () => mutation } },
     templates: { list: { useQuery: () => ({ data: templates }) }, create: { useMutation: () => mutation }, update: { useMutation: () => mutation }, delete: { useMutation: () => mutation }, folders: { list: { useQuery: () => ({ data: [] }) }, create: { useMutation: () => mutation }, delete: { useMutation: () => mutation } }, costItems: { create: { useMutation: () => mutation }, delete: { useMutation: () => mutation } } },
   },
 }));
+vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
+Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, get() { return 1000; } });
+Object.defineProperty(HTMLElement.prototype, "clientHeight", { configurable: true, get() { return 720; } });
 vi.mock("wouter", () => ({ useRoute: () => [true, { projectId: "project-1" }], useLocation: () => ["/workspace/project-1", vi.fn()] }));
 vi.mock("@/components/PdfPlanLayer", () => ({ default: () => null }));
 vi.mock("@/components/PdfThumbnail", () => ({ default: () => null }));
@@ -174,7 +177,7 @@ describe("WorkspacePage search integration", () => {
     const view = render(createElement(WorkspacePage));
     const root = within(view.container);
     expect(root.getByRole("application")).toBeTruthy();
-    const snapButton = root.getByRole("button", { name: /التقاط/ });
+    const snapButton = root.getByRole("button", { name: /التقاط النقاط/ });
     fireEvent.click(snapButton);
     expect(snapButton.getAttribute("aria-pressed")).toBe("false");
     fireEvent.change(root.getByPlaceholderText("اسم، نوع، أو قالب"), { target: { value: "ثانوية" } });

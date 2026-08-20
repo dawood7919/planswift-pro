@@ -112,6 +112,13 @@ export const appRouter = router({
       projectId: projectIdSchema,
       pageId: projectIdSchema,
     })).mutation(({ ctx, input }) => db.deleteProjectPage(ctx.user.id, input.projectId, input.pageId)),
+    migratePageGeometry: protectedProcedure.input(z.object({
+      projectId: projectIdSchema,
+      pageId: projectIdSchema,
+      // Only consulted for pages imported before the size was captured; a stored size wins.
+      pageWidth: z.number().positive().max(20_000),
+      pageHeight: z.number().positive().max(20_000),
+    })).mutation(({ ctx, input }) => db.migratePageGeometry(ctx.user.id, input.projectId, input.pageId, { width: input.pageWidth, height: input.pageHeight })),
     reorderPages: protectedProcedure.input(z.object({
       projectId: projectIdSchema,
       pageIds: z.array(projectIdSchema).min(1).max(500).refine((ids) => new Set(ids).size === ids.length, "PAGE_IDS_MUST_BE_UNIQUE"),

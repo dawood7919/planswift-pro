@@ -50,6 +50,16 @@ export const projectPages = mysqlTable("projectPages", {
   backgroundUrl: text("backgroundUrl"),
   documentId: varchar("documentId", { length: 36 }),
   pdfPageNumber: int("pdfPageNumber"),
+  /** Page size in PDF points (1/72"), rotation-normalized. Blank pages use 1000x720. */
+  pageWidth: decimal("pageWidth", { precision: 12, scale: 4 }),
+  pageHeight: decimal("pageHeight", { precision: 12, scale: 4 }),
+  /** The source PDF's /Rotate value, already applied to pageWidth and pageHeight. */
+  pageRotation: int("pageRotation").notNull().default(0),
+  /**
+   * Coordinate space of this page's takeoff geometry. Rows created before page-anchored
+   * coordinates existed stay LEGACY_VIEWBOX until an explicit, re-calibrating migration.
+   */
+  geometrySpace: mysqlEnum("geometrySpace", ["LEGACY_VIEWBOX", "PAGE_POINTS"]).notNull().default("LEGACY_VIEWBOX"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (table) => [uniqueIndex("project_pages_order_idx").on(table.projectId, table.sortOrder)]);

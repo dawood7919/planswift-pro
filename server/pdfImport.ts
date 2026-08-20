@@ -13,14 +13,31 @@ const upload = multer({
   fileFilter: (_request, file, callback) => callback(null, file.mimetype === "application/pdf" || file.originalname.toLowerCase().endsWith(".pdf")),
 });
 
-async function getPdfPageCount(buffer: Buffer): Promise<number> {
+export type PdfPageGeometry = { width: number; height: number; rotation: number };
+
+/**
+ * Reads every page's rotation-normalized size in PDF points. Takeoff geometry is stored in
+ * this space, so the dimensions must be captured at import — they cannot be recovered later.
+ */
+async function readPdfPageGeometry(buffer: Buffer): Promise<PdfPageGeometry[]> {
   const task = getDocument({ data: new Uint8Array(buffer) });
   try {
     const document = await task.promise;
     const pageCount = document.numPages;
-    document.cleanup();
     if (!Number.isInteger(pageCount) || pageCount < 1 || pageCount > 500) throw new Error("VALID_PAGE_COUNT_REQUIRED");
-    return pageCount;
+    const pages: PdfPageGeometry[] = [];
+    for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
+      const page = await document.getPage(pageNumber);
+      // getViewport already applies /Rotate, so width and height are the displayed ones.
+      const viewport = page.getViewport({ scale: 1 });
+      if (!Number.isFinite(viewport.width) || !Number.isFinite(viewport.height) || viewport.width <= 0 || viewport.height <= 0) {
+        throw new Error("INVALID_PDF_FILE");
+      }
+      pages.push({ width: viewport.width, height: viewport.height, rotation: page.rotate ?? 0 });
+      page.cleanup();
+    }
+    document.cleanup();
+    return pages;
   } finally {
     await task.destroy();
   }
@@ -34,7 +51,7 @@ export function registerPdfImportRoutes(app: Express) {
       const file = request.file;
       if (!file || file.size === 0 || file.size > maxPdfBytes) return response.status(400).json({ error: "PDF_FILE_REQUIRED" });
       if (file.buffer.subarray(0, 5).toString("ascii") !== "%PDF-") return response.status(400).json({ error: "INVALID_PDF_FILE" });
-      const pageCount = await getPdfPageCount(file.buffer);
+      const pageGeometry = await readPdfPageGeometry(file.buffer);
 
       const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 180) || "drawing.pdf";
       const stored = await storagePut(`takeoff/${user.id}/${request.params.projectId}/documents/${nanoid(12)}-${safeName}`, file.buffer, "application/pdf");
@@ -43,7 +60,7 @@ export function registerPdfImportRoutes(app: Express) {
         storageKey: stored.key,
         storageUrl: stored.url,
         byteSize: file.size,
-        pageCount,
+        pageGeometry,
       });
       return response.status(201).json(imported);
     } catch (error) {
