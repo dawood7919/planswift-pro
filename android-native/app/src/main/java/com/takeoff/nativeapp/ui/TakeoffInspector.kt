@@ -1,14 +1,14 @@
 package com.takeoff.nativeapp.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -77,21 +77,22 @@ fun TakeoffInspector(
     var newCostWaste by rememberSaveable { mutableStateOf("0") }
     var deviceToken by rememberSaveable { mutableStateOf("") }
     var versionLabel by rememberSaveable { mutableStateOf("") }
-    Column(modifier = modifier.background(Color(0xFFF9FCFE)).padding(10.dp)) {
-        Text("المفتش", style = MaterialTheme.typography.titleMedium)
-        Spacer(Modifier.height(6.dp))
-        Text("المشروع: ${state.project.name}", style = MaterialTheme.typography.bodySmall)
-        Text(
-            if (state.project.pages.isEmpty()) "الصفحات: لم تُضف صفحة بعد." else "الصفحات: ${state.project.pages.joinToString(" · ") { it.name }}",
-            style = MaterialTheme.typography.bodySmall,
-            maxLines = 2
-        )
+    Column(modifier = modifier.background(Color.White).verticalScroll(rememberScrollState()).padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("لوحة المشروع", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+        Text("أدوات القياس، الطبقات، القوالب والإصدارات", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(state.project.name, style = MaterialTheme.typography.titleSmall)
+                Text(if (state.project.pages.isEmpty()) "لم تُضف صفحة بعد." else "${state.project.pages.size} صفحة · ${state.measurements.size} عنصر قياس", style = MaterialTheme.typography.bodySmall)
+                Text("الأداة النشطة: ${state.selectedTool.label}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+            }
+        }
+        Text("الصفحات", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
         state.project.pages.forEach { page ->
             Button(onClick = { onSelectPage(page.id) }, enabled = page.id != state.activePageId, modifier = Modifier.fillMaxWidth().padding(top = 3.dp)) {
                 Text("${if (page.id == state.activePageId) "●" else "○"} ${page.name}")
             }
         }
-        Text("الأداة: ${state.selectedTool.label}", style = MaterialTheme.typography.bodySmall)
         Text("مصدر الإدخال: ${state.inputSource}", style = MaterialTheme.typography.bodySmall)
         state.pdfLabel?.let { Text("المخطط: $it", style = MaterialTheme.typography.bodySmall, maxLines = 1) }
         state.loadError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
@@ -228,8 +229,8 @@ fun TakeoffInspector(
                 Button(onClick = onDeleteSelectedMeasurements) { Text("حذف المجموعة") }
             }
         }
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            items(state.measurements, key = { it.id }) { measurement ->
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            state.measurements.forEach { measurement ->
                 val scale = state.calibration?.factor
                 val unit = state.calibration?.unit
                 val value = when (measurement.kind) {

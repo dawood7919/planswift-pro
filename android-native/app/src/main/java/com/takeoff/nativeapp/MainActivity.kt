@@ -17,12 +17,20 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -139,9 +147,11 @@ private fun TakeoffNativeScreen(
     onSelectPage: (Long) -> Unit,
     onMotionEvent: (android.view.MotionEvent, com.takeoff.nativeapp.measurement.PlanPoint, androidx.compose.ui.geometry.Offset) -> Unit
 ) {
-    Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFFF3F7F9)) {
+    var isInspectorOpen by rememberSaveable { mutableStateOf(false) }
+    Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFFEAF0F3)) {
         Column(modifier = Modifier.fillMaxSize()) {
             TakeoffCommandBar(
+                projectName = state.project.name,
                 activeTool = state.selectedTool,
                 isLoading = state.isLoadingPlan,
                 hasMeasurements = state.measurements.isNotEmpty(),
@@ -149,9 +159,10 @@ private fun TakeoffNativeScreen(
                 onToolSelected = onToolSelected,
                 onClear = onClear,
                 onUndo = onUndo,
-                onExportReport = onExportReport
+                onExportReport = onExportReport,
+                onToggleInspector = { isInspectorOpen = !isInspectorOpen }
             )
-            BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(8.dp)) {
+            BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(10.dp)) {
                 val inspector = @Composable {
                     TakeoffInspector(
                         state = state,
@@ -189,19 +200,44 @@ private fun TakeoffNativeScreen(
                         modifier = Modifier.fillMaxSize()
                     )
                 }
-                if (maxWidth < 720.dp) {
-                    Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Box(modifier = Modifier.weight(1f).fillMaxWidth().background(Color(0xFF06202D))) {
-                            TakeoffCanvas(state = state, onMotionEvent = onMotionEvent)
-                        }
-                        Box(modifier = Modifier.fillMaxWidth().height(230.dp)) { inspector() }
+                val drawing = @Composable {
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        color = Color(0xFF0C2735),
+                        shape = RoundedCornerShape(18.dp),
+                        shadowElevation = 3.dp
+                    ) {
+                        TakeoffCanvas(state = state, onOpenPlan = onOpenPlan, onMotionEvent = onMotionEvent)
+                    }
+                }
+                if (maxWidth >= 980.dp) {
+                    Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Box(modifier = Modifier.weight(1f).fillMaxSize()) { drawing() }
+                        Surface(
+                            modifier = Modifier.fillMaxSize().weight(0.38f),
+                            color = Color.White,
+                            shape = RoundedCornerShape(18.dp),
+                            shadowElevation = 2.dp
+                        ) { inspector() }
                     }
                 } else {
-                    Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Box(modifier = Modifier.weight(1f).fillMaxSize().background(Color(0xFF06202D))) {
-                            TakeoffCanvas(state = state, onMotionEvent = onMotionEvent)
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        drawing()
+                        if (isInspectorOpen) {
+                            Surface(
+                                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().heightIn(max = 520.dp),
+                                color = Color.White,
+                                shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp),
+                                shadowElevation = 12.dp
+                            ) { inspector() }
+                        } else {
+                            FloatingActionButton(
+                                onClick = { isInspectorOpen = true },
+                                modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            ) { Text("لوحة") }
                         }
-                        Box(modifier = Modifier.fillMaxSize().weight(0.34f)) { inspector() }
                     }
                 }
             }
