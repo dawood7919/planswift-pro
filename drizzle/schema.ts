@@ -50,6 +50,10 @@ export const projectPages = mysqlTable("projectPages", {
   backgroundUrl: text("backgroundUrl"),
   documentId: varchar("documentId", { length: 36 }),
   pdfPageNumber: int("pdfPageNumber"),
+  pageWidth: decimal("pageWidth", { precision: 12, scale: 4 }),
+  pageHeight: decimal("pageHeight", { precision: 12, scale: 4 }),
+  pageRotation: int("pageRotation").notNull().default(0),
+  geometrySpace: mysqlEnum("geometrySpace", ["LEGACY_VIEWBOX", "PAGE_POINTS"]).notNull().default("LEGACY_VIEWBOX"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (table) => [uniqueIndex("project_pages_order_idx").on(table.projectId, table.sortOrder)]);

@@ -1,7 +1,7 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-import { createPdfViewportMatrix, formatCssMatrix } from "@shared/takeoff-core/viewport";
+import type { PageSize, PageViewport } from "@shared/takeoff-core/viewport";
 import { getPdfRenderStatus, PDF_RENDER_ERROR_MESSAGE } from "@shared/takeoff-core/pdfStatus";
 import { PdfPlanStatusOverlay } from "./PdfPlanStatusOverlay";
 
@@ -10,9 +10,11 @@ GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 type PdfPlanLayerProps = {
   url: string;
   pageNumber: number;
-  zoom: number;
-  pan: { x: number; y: number };
+  pageSize: PageSize;
+  viewport: PageViewport;
 };
+
+const MAX_CANVAS_PIXELS = 16_700_000;
 
 export function getPdfPageCount(buffer: ArrayBuffer) {
   const task = getDocument({ data: new Uint8Array(buffer) });
@@ -23,61 +25,54 @@ export function getPdfPageCount(buffer: ArrayBuffer) {
   });
 }
 
-export default function PdfPlanLayer({ url, pageNumber, zoom, pan }: PdfPlanLayerProps) {
+export default function PdfPlanLayer({ url, pageNumber, pageSize, viewport }: PdfPlanLayerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const layerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isRendering, setIsRendering] = useState(true);
   const [renderAttempt, setRenderAttempt] = useState(0);
-  const [layerSize, setLayerSize] = useState({ width: 0, height: 0 });
-  const transform = formatCssMatrix(createPdfViewportMatrix(zoom, pan, layerSize));
-
-  useLayoutEffect(() => {
-    const layer = layerRef.current;
-    if (!layer) return;
-    const update = () => setLayerSize({ width: layer.clientWidth, height: layer.clientHeight });
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(layer);
-    return () => observer.disconnect();
-  }, []);
+  const cssWidth = pageSize.width * viewport.scale;
+  const cssHeight = pageSize.height * viewport.scale;
 
   useEffect(() => {
+    if (viewport.scale === 0) return;
     let cancelled = false;
-    let task: ReturnType<typeof getDocument> | null = null;
-
-    async function renderPage() {
-      try {
-        setError(null);
-        setIsRendering(true);
-        task = getDocument({ url });
-        const document = await task.promise;
-        const page = await document.getPage(pageNumber);
-        const viewport = page.getViewport({ scale: 1.65 });
-        const canvas = canvasRef.current;
-        const context = canvas?.getContext("2d");
-        if (!canvas || !context || cancelled) return;
-        canvas.width = Math.ceil(viewport.width);
-        canvas.height = Math.ceil(viewport.height);
-        await page.render({ canvas, canvasContext: context, viewport }).promise;
-        document.cleanup();
-        if (!cancelled) setIsRendering(false);
-      } catch {
-        if (!cancelled) { setError(PDF_RENDER_ERROR_MESSAGE); setIsRendering(false); }
-      }
-    }
-
-    void renderPage();
-    return () => { cancelled = true; task?.destroy(); };
-  }, [url, pageNumber, renderAttempt]);
+    let documentTask: ReturnType<typeof getDocument> | null = null;
+    let renderTask: { cancel: () => void; promise: Promise<unknown> } | null = null;
+    const timeout = window.setTimeout(() => {
+      void (async () => {
+        try {
+          setError(null);
+          setIsRendering(true);
+          documentTask = getDocument({ url });
+          const document = await documentTask.promise;
+          const page = await document.getPage(pageNumber);
+          const baseViewport = page.getViewport({ scale: 1 });
+          const dpr = Math.max(1, window.devicePixelRatio || 1);
+          const requestedScale = viewport.scale * dpr;
+          const cappedScale = Math.min(requestedScale, Math.sqrt(MAX_CANVAS_PIXELS / Math.max(1, baseViewport.width * baseViewport.height)));
+          const renderViewport = page.getViewport({ scale: cappedScale });
+          const canvas = canvasRef.current;
+          const context = canvas?.getContext("2d");
+          if (!canvas || !context || cancelled) return;
+          canvas.width = Math.ceil(renderViewport.width);
+          canvas.height = Math.ceil(renderViewport.height);
+          renderTask = page.render({ canvas, canvasContext: context, viewport: renderViewport });
+          await renderTask.promise;
+          page.cleanup();
+          document.cleanup();
+          if (!cancelled) setIsRendering(false);
+        } catch (error) {
+          if (!cancelled && !(error instanceof Error && /cancel/i.test(error.name))) { setError(PDF_RENDER_ERROR_MESSAGE); setIsRendering(false); }
+        }
+      })();
+    }, 120);
+    return () => { cancelled = true; window.clearTimeout(timeout); renderTask?.cancel(); documentTask?.destroy(); };
+  }, [url, pageNumber, renderAttempt, viewport.scale]);
 
   const status = getPdfRenderStatus(isRendering, Boolean(error));
-
   return (
-    <div ref={layerRef} className="pdf-plan-layer" aria-label={`صفحة PDF رقم ${pageNumber}`}>
-      <div className="pdf-plan-transform" style={{ transform }}>
-      <canvas ref={canvasRef} />
-      </div>
+    <div className="pdf-plan-layer" aria-label={`صفحة PDF رقم ${pageNumber}`}>
+      <canvas ref={canvasRef} style={{ left: viewport.offsetX, top: viewport.offsetY, width: cssWidth, height: cssHeight }} />
       <PdfPlanStatusOverlay status={status} error={error} onRetry={() => setRenderAttempt((attempt) => attempt + 1)} />
     </div>
   );

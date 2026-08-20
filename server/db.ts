@@ -5,6 +5,7 @@ import { ENV } from './_core/env';
 import { nanoid } from "nanoid";
 import { parseProjectFile, stringifyProjectFile, type TakeoffProjectFile } from "../shared/takeoff-core/projectFile";
 import { inspectTemplateDependencies, type TemplateDependencyNode } from "../shared/takeoff-core/templateDeps";
+import { legacyGeometryToPagePoints, legacyPointToPagePoint } from "../shared/takeoff-core/legacyGeometry";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -142,7 +143,7 @@ export async function exportProjectFile(ownerId: number, projectId: string) {
   if (!workspace) throw new Error("PROJECT_NOT_FOUND");
   const file: TakeoffProjectFile = {
     format: "takeoff-project",
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     project: {
       name: workspace.project.name,
@@ -151,7 +152,7 @@ export async function exportProjectFile(ownerId: number, projectId: string) {
       currency: workspace.project.currency,
       lengthUnit: workspace.project.lengthUnit,
     },
-    pages: workspace.pages.map((page) => ({ sourceId: page.id, name: page.name, sortOrder: page.sortOrder, scaleDrawingDistance: page.scaleDrawingDistance, scaleWorldDistance: page.scaleWorldDistance, scaleUnit: page.scaleUnit })),
+    pages: workspace.pages.map((page) => ({ sourceId: page.id, name: page.name, sortOrder: page.sortOrder, scaleDrawingDistance: page.scaleDrawingDistance, scaleWorldDistance: page.scaleWorldDistance, scaleUnit: page.scaleUnit, pageWidth: page.pageWidth, pageHeight: page.pageHeight, pageRotation: page.pageRotation, geometrySpace: page.geometrySpace })),
     items: workspace.items.map((item) => ({ sourceId: item.id, pageSourceId: item.pageId, kind: item.kind, name: item.name, color: item.color, geometry: JSON.parse(item.geometryJson), rate: String(item.rate), multiplier: String(item.multiplier) })),
   };
   return stringifyProjectFile(file);
@@ -180,7 +181,7 @@ export async function importProjectFile(ownerId: number, file: TakeoffProjectFil
   const pageIds = new Map(file.pages.map((page) => [page.sourceId, nanoid(20)]));
   const firstPage = file.pages.slice().sort((left, right) => left.sortOrder - right.sortOrder)[0];
   await db.insert(projects).values({ id: projectId, ownerId, name: file.project.name, clientName: file.project.clientName, location: file.project.location, currency: file.project.currency, lengthUnit: file.project.lengthUnit });
-  await db.insert(projectPages).values(file.pages.map((page) => ({ id: pageIds.get(page.sourceId)!, projectId, name: page.name, sortOrder: page.sortOrder, scaleDrawingDistance: page.scaleDrawingDistance, scaleWorldDistance: page.scaleWorldDistance, scaleUnit: page.scaleUnit })));
+  await db.insert(projectPages).values(file.pages.map((page) => ({ id: pageIds.get(page.sourceId)!, projectId, name: page.name, sortOrder: page.sortOrder, scaleDrawingDistance: page.scaleDrawingDistance, scaleWorldDistance: page.scaleWorldDistance, scaleUnit: page.scaleUnit, pageWidth: page.pageWidth, pageHeight: page.pageHeight, pageRotation: page.pageRotation, geometrySpace: page.geometrySpace })));
   if (file.items.length) {
     await db.insert(takeoffItems).values(file.items.map((item) => ({ id: nanoid(20), projectId, pageId: pageIds.get(item.pageSourceId)!, kind: item.kind, name: item.name, color: item.color, geometryJson: JSON.stringify(item.geometry), rate: item.rate, multiplier: item.multiplier ?? "1", templateId: null })));
   }
@@ -213,7 +214,7 @@ export type ImportPdfInput = {
   storageKey: string;
   storageUrl: string;
   byteSize: number;
-  pageCount: number;
+  pages: Array<{ width: string; height: string; rotation: number }>;
 };
 
 export async function importPdfDocument(ownerId: number, projectId: string, input: ImportPdfInput) {
@@ -224,7 +225,8 @@ export async function importPdfDocument(ownerId: number, projectId: string, inpu
   const existingPages = await db.select({ sortOrder: projectPages.sortOrder }).from(projectPages).where(eq(projectPages.projectId, projectId)).orderBy(desc(projectPages.sortOrder)).limit(1);
   const documentId = nanoid(20);
   const startOrder = (existingPages[0]?.sortOrder ?? -1) + 1;
-  const pageRows = Array.from({ length: input.pageCount }, (_, index) => ({
+  if (input.pages.length < 1 || input.pages.length > 500 || input.pages.some((page) => !Number.isFinite(Number(page.width)) || !Number.isFinite(Number(page.height)) || Number(page.width) <= 0 || Number(page.height) <= 0 || !Number.isInteger(page.rotation))) throw new Error("INVALID_PDF_FILE");
+  const pageRows = input.pages.map((page, index) => ({
     id: nanoid(20),
     projectId,
     name: `${input.originalName.replace(/\.pdf$/i, "")} — ${index + 1}`,
@@ -232,6 +234,10 @@ export async function importPdfDocument(ownerId: number, projectId: string, inpu
     backgroundUrl: input.storageUrl,
     documentId,
     pdfPageNumber: index + 1,
+    pageWidth: page.width,
+    pageHeight: page.height,
+    pageRotation: page.rotation,
+    geometrySpace: "PAGE_POINTS" as const,
   }));
   await db.insert(projectDocuments).values({
     id: documentId,
@@ -241,7 +247,7 @@ export async function importPdfDocument(ownerId: number, projectId: string, inpu
     storageUrl: input.storageUrl,
     mimeType: "application/pdf",
     byteSize: input.byteSize,
-    pageCount: input.pageCount,
+    pageCount: input.pages.length,
   });
   await db.insert(projectPages).values(pageRows);
   const lastCommand = await db.select({ sequence: projectCommands.sequence }).from(projectCommands).where(eq(projectCommands.projectId, projectId)).orderBy(desc(projectCommands.sequence)).limit(1);
@@ -250,7 +256,7 @@ export async function importPdfDocument(ownerId: number, projectId: string, inpu
     projectId,
     sequence: (lastCommand[0]?.sequence ?? 0) + 1,
     type: "IMPORT_PDF",
-    payloadJson: JSON.stringify({ documentId, pageCount: input.pageCount, originalName: input.originalName }),
+    payloadJson: JSON.stringify({ documentId, pageCount: input.pages.length, originalName: input.originalName }),
   });
   return { documentId, pages: pageRows.map(({ id, name, sortOrder, pdfPageNumber, backgroundUrl }) => ({ id, name, sortOrder, pdfPageNumber, backgroundUrl })) };
 }
@@ -294,10 +300,35 @@ async function normalizePageOrder(db: ReturnType<typeof drizzle>, projectId: str
 export async function addBlankProjectPage(ownerId: number, projectId: string, name = "رسم جديد") {
   const db = await requireOwnedProject(ownerId, projectId);
   const existing = await db.select({ sortOrder: projectPages.sortOrder }).from(projectPages).where(eq(projectPages.projectId, projectId)).orderBy(desc(projectPages.sortOrder)).limit(1);
-  const page = { id: nanoid(20), projectId, name, sortOrder: (existing[0]?.sortOrder ?? -1) + 1 };
+  const page = { id: nanoid(20), projectId, name, sortOrder: (existing[0]?.sortOrder ?? -1) + 1, pageWidth: "1000", pageHeight: "720", pageRotation: 0, geometrySpace: "PAGE_POINTS" as const };
   await db.insert(projectPages).values(page);
   await appendProjectCommand(db, projectId, "CREATE_PAGE", { pageId: page.id, name: page.name });
   return page;
+}
+
+export async function convertLegacyPageToPagePoints(ownerId: number, projectId: string, pageId: string, pageSize: { width: number; height: number }) {
+  if (!Number.isFinite(pageSize.width) || !Number.isFinite(pageSize.height) || pageSize.width <= 0 || pageSize.height <= 0) throw new Error("INVALID_PAGE_DIMENSIONS");
+  const db = await requireOwnedProject(ownerId, projectId);
+  const [page] = await db.select().from(projectPages).where(and(eq(projectPages.id, pageId), eq(projectPages.projectId, projectId))).limit(1);
+  if (!page) throw new Error("PAGE_NOT_FOUND");
+  if (page.geometrySpace !== "LEGACY_VIEWBOX") throw new Error("PAGE_GEOMETRY_ALREADY_CURRENT");
+  await db.transaction(async (tx) => {
+    const pageItems = await tx.select().from(takeoffItems).where(and(eq(takeoffItems.projectId, projectId), eq(takeoffItems.pageId, pageId)));
+    for (const item of pageItems) {
+      const geometry = legacyGeometryToPagePoints(JSON.parse(item.geometryJson), pageSize);
+      await tx.update(takeoffItems).set({ geometryJson: JSON.stringify(geometry) }).where(eq(takeoffItems.id, item.id));
+    }
+    const annotations = await tx.select().from(pageAnnotations).where(and(eq(pageAnnotations.projectId, projectId), eq(pageAnnotations.pageId, pageId)));
+    for (const annotation of annotations) {
+      const point = legacyPointToPagePoint({ x: Number(annotation.x), y: Number(annotation.y) }, pageSize);
+      await tx.update(pageAnnotations).set({ x: point.x.toFixed(4), y: point.y.toFixed(4) }).where(eq(pageAnnotations.id, annotation.id));
+    }
+    await tx.delete(pageScaleContexts).where(and(eq(pageScaleContexts.projectId, projectId), eq(pageScaleContexts.pageId, pageId)));
+    await tx.update(projectPages).set({ pageWidth: pageSize.width.toFixed(4), pageHeight: pageSize.height.toFixed(4), geometrySpace: "PAGE_POINTS", scaleDrawingDistance: null, scaleWorldDistance: null, scaleUnit: null, activeScaleContextId: null }).where(and(eq(projectPages.id, pageId), eq(projectPages.projectId, projectId)));
+    const lastCommand = await tx.select({ sequence: projectCommands.sequence }).from(projectCommands).where(eq(projectCommands.projectId, projectId)).orderBy(desc(projectCommands.sequence)).limit(1);
+    await tx.insert(projectCommands).values({ id: nanoid(20), projectId, sequence: (lastCommand[0]?.sequence ?? 0) + 1, type: "MIGRATE_PAGE_GEOMETRY", payloadJson: JSON.stringify({ pageId, pageWidth: pageSize.width, pageHeight: pageSize.height, recalibrationRequired: true }) });
+  });
+  return { pageId, geometrySpace: "PAGE_POINTS" as const };
 }
 
 export async function renameProjectPage(ownerId: number, projectId: string, pageId: string, name: string) {

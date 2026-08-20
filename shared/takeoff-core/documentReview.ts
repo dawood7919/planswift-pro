@@ -3,6 +3,8 @@ export type ReviewablePage = {
   documentId: string | null;
   pdfPageNumber: number | null;
   backgroundUrl: string | null;
+  pageWidth?: string | null;
+  pageHeight?: string | null;
 };
 
 /** Finds the page with the same PDF number in a selected, different document. */

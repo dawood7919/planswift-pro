@@ -13,14 +13,30 @@ const upload = multer({
   fileFilter: (_request, file, callback) => callback(null, file.mimetype === "application/pdf" || file.originalname.toLowerCase().endsWith(".pdf")),
 });
 
-async function getPdfPageCount(buffer: Buffer): Promise<number> {
+type ImportedPdfPage = { width: string; height: string; rotation: number };
+
+export async function getPdfPageMetadata(buffer: Buffer): Promise<ImportedPdfPage[]> {
   const task = getDocument({ data: new Uint8Array(buffer) });
   try {
     const document = await task.promise;
     const pageCount = document.numPages;
-    document.cleanup();
     if (!Number.isInteger(pageCount) || pageCount < 1 || pageCount > 500) throw new Error("VALID_PAGE_COUNT_REQUIRED");
-    return pageCount;
+    const pages: ImportedPdfPage[] = [];
+    for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
+      const page = await document.getPage(pageNumber);
+      const viewport = page.getViewport({ scale: 1 });
+      const rotation = ((page.rotate % 360) + 360) % 360;
+      if (!Number.isFinite(viewport.width) || !Number.isFinite(viewport.height) || viewport.width <= 0 || viewport.height <= 0 || !Number.isInteger(rotation)) {
+        throw new Error("INVALID_PDF_FILE");
+      }
+      pages.push({ width: viewport.width.toFixed(4), height: viewport.height.toFixed(4), rotation });
+      page.cleanup();
+    }
+    document.cleanup();
+    return pages;
+  } catch (error) {
+    if (error instanceof Error && (error.message === "VALID_PAGE_COUNT_REQUIRED" || error.message === "INVALID_PDF_FILE")) throw error;
+    throw new Error("INVALID_PDF_FILE");
   } finally {
     await task.destroy();
   }
@@ -34,7 +50,7 @@ export function registerPdfImportRoutes(app: Express) {
       const file = request.file;
       if (!file || file.size === 0 || file.size > maxPdfBytes) return response.status(400).json({ error: "PDF_FILE_REQUIRED" });
       if (file.buffer.subarray(0, 5).toString("ascii") !== "%PDF-") return response.status(400).json({ error: "INVALID_PDF_FILE" });
-      const pageCount = await getPdfPageCount(file.buffer);
+      const pages = await getPdfPageMetadata(file.buffer);
 
       const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 180) || "drawing.pdf";
       const stored = await storagePut(`takeoff/${user.id}/${request.params.projectId}/documents/${nanoid(12)}-${safeName}`, file.buffer, "application/pdf");
@@ -43,7 +59,7 @@ export function registerPdfImportRoutes(app: Express) {
         storageKey: stored.key,
         storageUrl: stored.url,
         byteSize: file.size,
-        pageCount,
+        pages,
       });
       return response.status(201).json(imported);
     } catch (error) {

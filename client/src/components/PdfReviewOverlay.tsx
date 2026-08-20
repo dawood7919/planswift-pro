@@ -1,63 +1,53 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-import { createPdfViewportMatrix, formatCssMatrix } from "@shared/takeoff-core/viewport";
+import type { PageSize, PageViewport } from "@shared/takeoff-core/viewport";
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 type PdfLayer = { url: string; pageNumber: number; tone: "reference" | "current" };
+type PdfReviewOverlayProps = { reference: PdfLayer; current: PdfLayer; viewport: PageViewport; currentPageSize: PageSize; referencePageSize: PageSize };
+const MAX_CANVAS_PIXELS = 16_700_000;
 
-type PdfReviewOverlayProps = {
-  reference: PdfLayer;
-  current: PdfLayer;
-  zoom: number;
-  pan: { x: number; y: number };
-};
-
-function ReviewCanvas({ layer, transform }: { layer: PdfLayer; transform: string }) {
+function ReviewCanvas({ layer, pageSize, viewport }: { layer: PdfLayer; pageSize: PageSize; viewport: PageViewport }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [failed, setFailed] = useState(false);
-
   useEffect(() => {
+    if (viewport.scale === 0) return;
     let cancelled = false;
-    const task = getDocument({ url: layer.url });
-    async function render() {
-      try {
-        setFailed(false);
-        const document = await task.promise;
-        const page = await document.getPage(layer.pageNumber);
-        const viewport = page.getViewport({ scale: 1.65 });
-        const canvas = canvasRef.current;
-        const context = canvas?.getContext("2d");
-        if (!canvas || !context || cancelled) return;
-        canvas.width = Math.ceil(viewport.width);
-        canvas.height = Math.ceil(viewport.height);
-        await page.render({ canvas, canvasContext: context, viewport }).promise;
-        document.cleanup();
-      } catch {
-        if (!cancelled) setFailed(true);
-      }
-    }
-    void render();
-    return () => { cancelled = true; task.destroy(); };
-  }, [layer.pageNumber, layer.url]);
-
+    let task: ReturnType<typeof getDocument> | null = null;
+    let renderTask: { cancel: () => void; promise: Promise<unknown> } | null = null;
+    const timeout = window.setTimeout(() => {
+      void (async () => {
+        try {
+          setFailed(false);
+          task = getDocument({ url: layer.url });
+          const document = await task.promise;
+          const page = await document.getPage(layer.pageNumber);
+          const baseViewport = page.getViewport({ scale: 1 });
+          const requested = viewport.scale * Math.max(1, window.devicePixelRatio || 1);
+          const scale = Math.min(requested, Math.sqrt(MAX_CANVAS_PIXELS / Math.max(1, baseViewport.width * baseViewport.height)));
+          const renderViewport = page.getViewport({ scale });
+          const canvas = canvasRef.current;
+          const context = canvas?.getContext("2d");
+          if (!canvas || !context || cancelled) return;
+          canvas.width = Math.ceil(renderViewport.width);
+          canvas.height = Math.ceil(renderViewport.height);
+          renderTask = page.render({ canvas, canvasContext: context, viewport: renderViewport });
+          await renderTask.promise;
+          page.cleanup();
+          document.cleanup();
+        } catch (error) {
+          if (!cancelled && !(error instanceof Error && /cancel/i.test(error.name))) setFailed(true);
+        }
+      })();
+    }, 120);
+    return () => { cancelled = true; window.clearTimeout(timeout); renderTask?.cancel(); task?.destroy(); };
+  }, [layer.pageNumber, layer.url, viewport.scale]);
   if (failed) return null;
-  return <canvas ref={canvasRef} className={`pdf-review-canvas ${layer.tone}`} style={{ transform }} aria-hidden="true" />;
+  return <canvas ref={canvasRef} className={`pdf-review-canvas ${layer.tone}`} style={{ left: viewport.offsetX, top: viewport.offsetY, width: pageSize.width * viewport.scale, height: pageSize.height * viewport.scale }} aria-hidden="true" />;
 }
 
-export default function PdfReviewOverlay({ reference, current, zoom, pan }: PdfReviewOverlayProps) {
-  const rootRef = useRef<HTMLDivElement>(null);
-  const [size, setSize] = useState({ width: 0, height: 0 });
-  useLayoutEffect(() => {
-    const root = rootRef.current;
-    if (!root) return;
-    const update = () => setSize({ width: root.clientWidth, height: root.clientHeight });
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(root);
-    return () => observer.disconnect();
-  }, []);
-  const transform = formatCssMatrix(createPdfViewportMatrix(zoom, pan, size));
-  return <div ref={rootRef} className="pdf-review-overlay" aria-label="مراجعة اختلاف الوثيقتين"><ReviewCanvas layer={reference} transform={transform} /><ReviewCanvas layer={current} transform={transform} /><div className="pdf-review-legend"><span className="reference">النسخة المرجعية</span><span className="current">النسخة الحالية</span></div></div>;
+export default function PdfReviewOverlay({ reference, current, viewport, currentPageSize, referencePageSize }: PdfReviewOverlayProps) {
+  return <div className="pdf-review-overlay" aria-label="مراجعة اختلاف الوثيقتين"><ReviewCanvas layer={reference} pageSize={referencePageSize} viewport={viewport} /><ReviewCanvas layer={current} pageSize={currentPageSize} viewport={viewport} /><div className="pdf-review-legend"><span className="reference">النسخة المرجعية</span><span className="current">النسخة الحالية</span></div></div>;
 }

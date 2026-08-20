@@ -28,6 +28,8 @@ import { snapPoint, type SnapResult } from "@shared/takeoff-core/snapping";
 import { searchTakeoffItems } from "@shared/takeoff-core/itemSearch";
 import { translateMeasurementGeometry } from "@shared/takeoff-core/translate";
 import { normalizePointerInput, pointerInputLabel, type PointerInputKind } from "@shared/takeoff-core/pointerInput";
+import { createPageViewport, DEFAULT_BLANK_PAGE_SIZE, toPagePoint, type PageSize } from "@shared/takeoff-core/viewport";
+import { legacyGeometryToPagePoints, legacyPointToPagePoint } from "@shared/takeoff-core/legacyGeometry";
 import {
   ArrowLeft,
   BookmarkPlus,
@@ -62,7 +64,7 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
-import React, { PointerEvent, WheelEvent, useEffect, useMemo, useRef, useState } from "react";
+import React, { PointerEvent, WheelEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useLocation, useRoute } from "wouter";
 
@@ -130,6 +132,10 @@ export default function WorkspacePage() {
   const deletePage = trpc.projects.deletePage.useMutation({
     onSuccess: (result) => { setActivePageId(result.nextPageId); utils.projects.get.invalidate(projectId); toast.success("حُذفت الصفحة وعناصر قياسها."); },
     onError: (error) => toast.error(error.message === "LAST_PAGE_REQUIRED" ? "يجب أن يبقى في المشروع صفحة واحدة على الأقل." : error.message || "تعذر حذف الصفحة."),
+  });
+  const convertLegacyPageGeometry = trpc.projects.convertLegacyPageGeometry.useMutation({
+    onSuccess: () => { setCalibration(null); setSelectedId(null); setSelectedIds(new Set()); utils.projects.get.invalidate(projectId); toast.success("حُولت الصفحة إلى إحداثيات PDF. أعد المعايرة قبل اعتماد أي كمية."); },
+    onError: (error) => toast.error(error.message || "تعذر تحويل الصفحة القديمة."),
   });
   const createScaleContext = trpc.projects.createScaleContext.useMutation({
     onSuccess: (context) => { setCalibration({ drawingDistance: Number(context.drawingDistance), worldDistance: Number(context.worldDistance), unit: context.unit as CalibrationScale["unit"], factor: Number(context.worldDistance) / Number(context.drawingDistance) }); setScaleContextName(""); utils.projects.get.invalidate(projectId); toast.success("حُفظ سياق المقياس وجرى تفعيله."); },
@@ -233,7 +239,8 @@ export default function WorkspacePage() {
   const [reviewLabel, setReviewLabel] = useState("");
   const [annotationText, setAnnotationText] = useState("");
   const [annotationColor, setAnnotationColor] = useState("#ff9c7b");
-  const [snapEnabled, setSnapEnabled] = useState(true);
+  const [objectSnapEnabled, setObjectSnapEnabled] = useState(true);
+  const [gridSnapEnabled, setGridSnapEnabled] = useState(false);
   const [snapIndicator, setSnapIndicator] = useState<SnapResult | null>(null);
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
   const [templateKind, setTemplateKind] = useState<"PART" | "ASSEMBLY">("PART");
@@ -256,8 +263,10 @@ export default function WorkspacePage() {
   const [itemSearchQuery, setItemSearchQuery] = useState("");
   const hydratedProject = useRef<string | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  const canvasShellRef = useRef<HTMLElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
   const pointerAnchor = useRef<{ clientX: number; clientY: number; pan: { x: number; y: number } } | null>(null);
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
 
   const pages = workspaceQuery.data?.pages ?? [];
   const defaultPage = pages.find((candidate) => candidate.pdfPageNumber) ?? pages[0];
@@ -268,6 +277,24 @@ export default function WorkspacePage() {
   const pageAnnotations = (workspaceQuery.data?.annotations ?? []).filter((annotation) => annotation.pageId === page?.id);
   const pageScaleContexts = (workspaceQuery.data?.scaleContexts ?? []).filter((context) => context.pageId === page?.id);
   const projectVersions = workspaceQuery.data?.versions ?? [];
+  const isLegacyPage = page?.geometrySpace === "LEGACY_VIEWBOX";
+  const pageSize = useMemo<PageSize>(() => {
+    const width = Number(page?.pageWidth);
+    const height = Number(page?.pageHeight);
+    return Number.isFinite(width) && width > 0 && Number.isFinite(height) && height > 0 ? { width, height } : DEFAULT_BLANK_PAGE_SIZE;
+  }, [page?.pageHeight, page?.pageWidth]);
+  const viewport = useMemo(() => createPageViewport(pageSize, canvasSize, zoom, pan), [pageSize, canvasSize, zoom, pan]);
+
+  useLayoutEffect(() => {
+    const canvasShell = canvasShellRef.current;
+    if (!canvasShell) return;
+    const update = () => setCanvasSize({ width: canvasShell.clientWidth || DEFAULT_BLANK_PAGE_SIZE.width, height: canvasShell.clientHeight || DEFAULT_BLANK_PAGE_SIZE.height });
+    update();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(update);
+    observer.observe(canvasShell);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     if (!workspaceQuery.data || workspaceQuery.data.project.id === hydratedProject.current) return;
@@ -286,6 +313,8 @@ export default function WorkspacePage() {
   }, [workspaceQuery.data, activePageId]);
 
   const pageItems = useMemo(() => items.filter((item) => item.pageId === page?.id), [items, page?.id]);
+  const renderedPageItems = useMemo(() => isLegacyPage ? pageItems.map((item) => ({ ...item, geometry: legacyGeometryToPagePoints(item.geometry, pageSize) })) : pageItems, [isLegacyPage, pageItems, pageSize]);
+  const renderedAnnotations = useMemo(() => isLegacyPage ? pageAnnotations.map((annotation) => ({ ...annotation, ...legacyPointToPagePoint({ x: Number(annotation.x), y: Number(annotation.y) }, pageSize) })) : pageAnnotations, [isLegacyPage, pageAnnotations, pageSize]);
   const snapCandidates = useMemo(() => pageItems.flatMap((item) => isAreaKind(item.kind) ? item.geometry.rings?.flat() ?? [] : item.kind === "COUNT" ? item.geometry.marks ?? [] : item.geometry.points ?? []), [pageItems]);
   const selected = pageItems.find((item) => item.id === selectedId) ?? null;
   const selectedItems = pageItems.filter((item) => selectedIds.has(item.id));
@@ -334,10 +363,9 @@ export default function WorkspacePage() {
 
   function eventPoint(event: PointerEvent<SVGSVGElement>): Point2D {
     const rect = event.currentTarget.getBoundingClientRect();
-    const point = { x: (event.clientX - rect.left) * (1000 / rect.width), y: (event.clientY - rect.top) * (720 / rect.height) };
-    const drawingPoint = { x: (point.x - pan.x) / zoom, y: (point.y - pan.y) / zoom };
-    if (!snapEnabled || tool === "PAN") { setSnapIndicator(null); return drawingPoint; }
-    const snapped = snapPoint(drawingPoint, { endpointCandidates: snapCandidates, radius: 12 / zoom, gridSize: 40 });
+    const drawingPoint = toPagePoint({ x: event.clientX, y: event.clientY }, rect, viewport);
+    if ((!objectSnapEnabled && !gridSnapEnabled) || tool === "PAN") { setSnapIndicator(null); return drawingPoint; }
+    const snapped = snapPoint(drawingPoint, { endpointCandidates: snapCandidates, radius: 12 / Math.max(viewport.scale, 0.0001), gridSize: calibration ? 0.5 / calibration.factor : 0, objectSnapEnabled, gridSnapEnabled: gridSnapEnabled && Boolean(calibration) && !isLegacyPage });
     setSnapIndicator(snapped.kind === "NONE" ? null : snapped);
     return snapped.point;
   }
@@ -365,9 +393,10 @@ export default function WorkspacePage() {
 
   function handleCanvasPointerDown(event: PointerEvent<SVGSVGElement>) {
     setPointerInput(normalizePointerInput(event.pointerType));
-    const point = eventPoint(event);
     event.currentTarget.setPointerCapture(event.pointerId);
     if (tool === "PAN" || event.button === 1) { pointerAnchor.current = { clientX: event.clientX, clientY: event.clientY, pan }; setIsPanning(true); return; }
+    if (isLegacyPage) { toast.error("هذه الصفحة تستخدم إحداثيات قديمة. حوّلها وأعد معايرتها قبل التعديل."); return; }
+    const point = eventPoint(event);
     if (tool === "SELECT") {
       const vertex = hitVertex(point);
       if (vertex && !event.shiftKey) { pushHistory(); setSelectedId(vertex.itemId); setSelectedIds(new Set([vertex.itemId])); setDraggedVertex(vertex); return; }
@@ -401,10 +430,10 @@ export default function WorkspacePage() {
 
   function handleCanvasPointerMove(event: PointerEvent<SVGSVGElement>) {
     if (isPanning && pointerAnchor.current) {
-      const rect = event.currentTarget.getBoundingClientRect();
-      setPan({ x: pointerAnchor.current.pan.x + (event.clientX - pointerAnchor.current.clientX) * (1000 / rect.width), y: pointerAnchor.current.pan.y + (event.clientY - pointerAnchor.current.clientY) * (720 / rect.height) });
+      setPan({ x: pointerAnchor.current.pan.x + event.clientX - pointerAnchor.current.clientX, y: pointerAnchor.current.pan.y + event.clientY - pointerAnchor.current.clientY });
       return;
     }
+    if (isLegacyPage) return;
     if (draggedVertex) {
       const point = eventPoint(event);
       setItems((current) => current.map((item) => {
@@ -433,7 +462,7 @@ export default function WorkspacePage() {
   function handleWheel(event: WheelEvent<SVGSVGElement>) { event.preventDefault(); setZoom((value) => Math.max(.55, Math.min(3.2, value + (event.deltaY > 0 ? -.12 : .12)))); }
 
   function hitItem(point: Point2D): string | null {
-    const tolerance = 13 / zoom;
+    const tolerance = 13 / Math.max(viewport.scale, 0.0001);
     for (const item of [...pageItems].reverse()) {
       const points = isAreaKind(item.kind) ? item.geometry.rings?.flat() ?? [] : item.kind === "COUNT" ? item.geometry.marks ?? [] : item.geometry.points ?? [];
       if (points.some((candidate) => Math.hypot(candidate.x - point.x, candidate.y - point.y) < tolerance)) return item.id;
@@ -442,7 +471,7 @@ export default function WorkspacePage() {
   }
 
   function hitVertex(point: Point2D): VertexTarget | null {
-    const tolerance = 11 / zoom;
+    const tolerance = 11 / Math.max(viewport.scale, 0.0001);
     for (const item of [...pageItems].reverse()) {
       if (isAreaKind(item.kind)) {
         const rings = item.geometry.rings ?? [];
@@ -752,7 +781,7 @@ export default function WorkspacePage() {
     <div className="takeoff-workspace" dir="rtl">
       <header className="workspace-topbar compact">
         <div className="project-heading"><Button variant="ghost" size="icon" onClick={() => setLocation("/projects")} aria-label="العودة إلى المشاريع"><ArrowLeft size={19} /></Button><div><p className="workspace-eyebrow">PROJECT / {page.name}</p><h1>{workspaceQuery.data.project.name}</h1></div></div>
-        <div className="topbar-actions"><input ref={importInputRef} className="visually-hidden" type="file" accept="application/pdf,.pdf" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importPdf(file); }} /><Button variant="outline" size="sm" onClick={() => importInputRef.current?.click()} disabled={isImporting}><FileUp size={15} />{isImporting ? "جارٍ الاستيراد" : "استيراد PDF"}</Button><Button variant="outline" size="sm" onClick={downloadProjectFile} disabled={exportProject.isPending}><Download size={15} />{exportProject.isPending ? "جارٍ التصدير" : "نسخة"}</Button><Button variant="outline" size="sm" onClick={() => createNativeSession.mutate()} disabled={createNativeSession.isPending}><Smartphone size={15} />{createNativeSession.isPending ? "جارٍ إنشاء الرمز" : "ربط Android"}</Button><Button variant={isTemplatesOpen ? "default" : "outline"} size="sm" onClick={() => setIsTemplatesOpen((current) => !current)}><Layers3 size={15} />القوالب</Button><Button variant={isReportOpen ? "default" : "outline"} size="sm" onClick={() => setIsReportOpen((current) => !current)}><Download size={15} />تقرير</Button>{page.backgroundUrl && page.pdfPageNumber && reviewDocuments.length > 0 && <label className="review-select">مراجعة<select value={reviewDocumentId ?? ""} onChange={(event) => setReviewDocumentId(event.target.value || null)}><option value="">بدون Overlay</option>{reviewDocuments.map((document) => <option key={document.id} value={document.id}>{document.originalName}</option>)}</select></label>}<Button variant={snapEnabled ? "default" : "outline"} size="sm" onClick={() => setSnapEnabled((current) => !current)} aria-pressed={snapEnabled}><Crosshair size={15} />التقاط</Button><Button variant="outline" size="sm" onClick={() => projectId && addBlankPage.mutate({ projectId })} disabled={addBlankPage.isPending}><Plus size={15} />صفحة فارغة</Button><Button variant="outline" size="icon" onClick={() => moveActivePage(1)} disabled={reorderPages.isPending || pages.findIndex((candidate) => candidate.id === page.id) >= pages.length - 1} aria-label="تحريك الصفحة للأسفل"><ChevronRight size={16} /></Button><Button variant="outline" size="icon" onClick={() => moveActivePage(-1)} disabled={reorderPages.isPending || pages.findIndex((candidate) => candidate.id === page.id) <= 0} aria-label="تحريك الصفحة للأعلى"><ChevronLeft size={16} /></Button><Button variant="outline" size="icon" onClick={startRenamePage} disabled={renamePage.isPending} aria-label="إعادة تسمية الصفحة"><Pencil size={15} /></Button><Button variant="outline" size="icon" onClick={requestDeletePage} disabled={deletePage.isPending || pages.length <= 1} className="danger-action" aria-label="حذف الصفحة"><Trash2 size={15} /></Button><span className={`scale-chip ${calibration ? "valid" : ""}`}><CircleDot size={14} />{calibration ? `1 وحدة رسم = ${calibration.factor.toFixed(3)} ${calibration.unit}` : "المقياس غير مضبوط"}</span><Button variant="outline" size="sm" onClick={undo} disabled={!history.length}><Undo2 size={15} />تراجع</Button><Button variant="outline" size="sm" onClick={redo} disabled={!future.length}><Redo2 size={15} />إعادة</Button><Button className="workspace-primary" size="sm" onClick={save} disabled={saveWorkspace.isPending}><Save size={15} />{saveWorkspace.isPending ? "جارٍ الحفظ" : "حفظ"}</Button></div>
+        <div className="topbar-actions"><input ref={importInputRef} className="visually-hidden" type="file" accept="application/pdf,.pdf" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importPdf(file); }} /><Button variant="outline" size="sm" onClick={() => importInputRef.current?.click()} disabled={isImporting}><FileUp size={15} />{isImporting ? "جارٍ الاستيراد" : "استيراد PDF"}</Button><Button variant="outline" size="sm" onClick={downloadProjectFile} disabled={exportProject.isPending}><Download size={15} />{exportProject.isPending ? "جارٍ التصدير" : "نسخة"}</Button><Button variant="outline" size="sm" onClick={() => createNativeSession.mutate()} disabled={createNativeSession.isPending}><Smartphone size={15} />{createNativeSession.isPending ? "جارٍ إنشاء الرمز" : "ربط Android"}</Button><Button variant={isTemplatesOpen ? "default" : "outline"} size="sm" onClick={() => setIsTemplatesOpen((current) => !current)}><Layers3 size={15} />القوالب</Button><Button variant={isReportOpen ? "default" : "outline"} size="sm" onClick={() => setIsReportOpen((current) => !current)}><Download size={15} />تقرير</Button>{page.backgroundUrl && page.pdfPageNumber && reviewDocuments.length > 0 && <label className="review-select">مراجعة<select value={reviewDocumentId ?? ""} onChange={(event) => setReviewDocumentId(event.target.value || null)}><option value="">بدون Overlay</option>{reviewDocuments.map((document) => <option key={document.id} value={document.id}>{document.originalName}</option>)}</select></label>}<Button variant={objectSnapEnabled ? "default" : "outline"} size="sm" onClick={() => setObjectSnapEnabled((current) => !current)} aria-pressed={objectSnapEnabled}><Crosshair size={15} />التقاط عناصر</Button><Button variant={gridSnapEnabled ? "default" : "outline"} size="sm" onClick={() => setGridSnapEnabled((current) => !current)} disabled={!calibration || isLegacyPage} aria-pressed={gridSnapEnabled}><Hash size={15} />التقاط شبكة</Button><Button variant="outline" size="sm" onClick={() => projectId && addBlankPage.mutate({ projectId })} disabled={addBlankPage.isPending}><Plus size={15} />صفحة فارغة</Button><Button variant="outline" size="icon" onClick={() => moveActivePage(1)} disabled={reorderPages.isPending || pages.findIndex((candidate) => candidate.id === page.id) >= pages.length - 1} aria-label="تحريك الصفحة للأسفل"><ChevronRight size={16} /></Button><Button variant="outline" size="icon" onClick={() => moveActivePage(-1)} disabled={reorderPages.isPending || pages.findIndex((candidate) => candidate.id === page.id) <= 0} aria-label="تحريك الصفحة للأعلى"><ChevronLeft size={16} /></Button><Button variant="outline" size="icon" onClick={startRenamePage} disabled={renamePage.isPending} aria-label="إعادة تسمية الصفحة"><Pencil size={15} /></Button><Button variant="outline" size="icon" onClick={requestDeletePage} disabled={deletePage.isPending || pages.length <= 1} className="danger-action" aria-label="حذف الصفحة"><Trash2 size={15} /></Button><span className={`scale-chip ${calibration ? "valid" : ""}`}><CircleDot size={14} />{calibration ? `1 وحدة رسم = ${calibration.factor.toFixed(3)} ${calibration.unit}` : "المقياس غير مضبوط"}</span><Button variant="outline" size="sm" onClick={undo} disabled={!history.length}><Undo2 size={15} />تراجع</Button><Button variant="outline" size="sm" onClick={redo} disabled={!future.length}><Redo2 size={15} />إعادة</Button><Button className="workspace-primary" size="sm" onClick={save} disabled={saveWorkspace.isPending}><Save size={15} />{saveWorkspace.isPending ? "جارٍ الحفظ" : "حفظ"}</Button></div>
       </header>
 
       <div className="page-strip" aria-label="صفحات المشروع">
@@ -776,25 +805,26 @@ export default function WorkspacePage() {
           <button className="tool-button" title="إلغاء الرسم الحالي" onClick={() => { setDraftPoints([]); setCalibrationPoints([]); setTool("SELECT"); }}><X size={19} /><span>إلغاء</span></button>
         </aside>
 
-        <section className="canvas-shell" aria-label="مساحة الرسم والقياس">
-          <div className="canvas-status"><span><Crosshair size={14} />{activeTool?.label}: {activeTool?.hint}</span><span>{pageItems.length} عناصر ملتزمة</span><span data-testid="pointer-input">إدخال: {pointerInputLabel(pointerInput)}</span>{selectedItems.length > 1 && <span>{selectedItems.length} عناصر محددة</span>}</div>
-          <svg ref={svgRef} className="takeoff-canvas" style={{ touchAction: "none" }} viewBox="0 0 1000 720" preserveAspectRatio="none" role="application" aria-label="مساحة رسم هندسية تفاعلية" onPointerDown={handleCanvasPointerDown} onPointerMove={handleCanvasPointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onWheel={handleWheel}>
+        <section ref={canvasShellRef} className="canvas-shell" aria-label="مساحة الرسم والقياس">
+          <div className="canvas-status"><span><Crosshair size={14} />{activeTool?.label}: {activeTool?.hint}</span><span>{pageItems.length} عناصر ملتزمة</span><span data-testid="pointer-input">إدخال: {pointerInputLabel(pointerInput)}</span>{isLegacyPage && <span>تنبيه: إحداثيات قديمة</span>}{selectedItems.length > 1 && <span>{selectedItems.length} عناصر محددة</span>}</div>
+          <svg ref={svgRef} className="takeoff-canvas" style={{ touchAction: "none" }} viewBox={`0 0 ${canvasSize.width} ${canvasSize.height}`} role="application" aria-label="مساحة رسم هندسية تفاعلية" onPointerDown={handleCanvasPointerDown} onPointerMove={handleCanvasPointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onWheel={handleWheel}>
             <defs><pattern id="workspace-grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(168,210,203,.12)" strokeWidth="1" /></pattern><pattern id="workspace-major-grid" width="200" height="200" patternUnits="userSpaceOnUse"><rect width="200" height="200" fill="url(#workspace-grid)" /><path d="M 200 0 L 0 0 0 200" fill="none" stroke="rgba(197,255,85,.2)" strokeWidth="1" /></pattern></defs>
-            <rect width="1000" height="720" fill={page.backgroundUrl ? "rgba(16,43,57,.24)" : "#102b39"} /><rect width="1000" height="720" fill="url(#workspace-major-grid)" opacity={page.backgroundUrl ? .34 : 1} />
-            <g transform={`translate(${pan.x} ${pan.y}) scale(${zoom})`}>
+            <rect width={canvasSize.width} height={canvasSize.height} fill={page.backgroundUrl ? "rgba(16,43,57,.24)" : "#102b39"} /><rect width={canvasSize.width} height={canvasSize.height} fill="url(#workspace-major-grid)" opacity={page.backgroundUrl ? .34 : 1} />
+            <g transform={`translate(${viewport.offsetX} ${viewport.offsetY}) scale(${viewport.scale})`}>
               {!page.backgroundUrl && <><path d="M110 130H520L660 245V550H290L195 455H110Z" fill="rgba(201,255,74,.045)" stroke="rgba(201,255,74,.42)" strokeWidth="2" strokeDasharray="8 8" />
               <path d="M150 210H420V430H150ZM530 350H615V490H530Z" fill="none" stroke="rgba(135,217,247,.25)" strokeWidth="1.5" /></>}
-              {pageItems.map((item) => <MeasurementShape key={item.id} item={item} selected={selectedIds.has(item.id)} />)}
-              {pageAnnotations.map((annotation) => <g key={annotation.id} className="page-annotation"><rect x={Number(annotation.x) - 5} y={Number(annotation.y) - 19} width={Math.max(86, annotation.text.length * 8)} height="26" rx="5" fill="rgba(16,43,57,.82)" stroke={annotation.color} strokeWidth="1.5" /><text x={annotation.x} y={Number(annotation.y) - 2} fill={annotation.color} fontSize="14" fontWeight="700">{annotation.text}</text></g>)}
+              {renderedPageItems.map((item) => <MeasurementShape key={item.id} item={item} selected={selectedIds.has(item.id)} screenScale={viewport.scale} />)}
+              {renderedAnnotations.map((annotation) => <g key={annotation.id} className="page-annotation"><rect x={Number(annotation.x) - 5} y={Number(annotation.y) - 19} width={Math.max(86, annotation.text.length * 8)} height="26" rx="5" fill="rgba(16,43,57,.82)" stroke={annotation.color} strokeWidth="1.5" /><text x={annotation.x} y={Number(annotation.y) - 2} fill={annotation.color} fontSize="14" fontWeight="700">{annotation.text}</text></g>)}
               {preview.length > 0 && <polyline points={preview.map((point) => `${point.x},${point.y}`).join(" ")} fill={(["AREA", "ROOF_AREA", "VOLUME"] as Tool[]).includes(tool) ? "rgba(201,255,74,.12)" : "none"} stroke="#f6cf62" strokeWidth="2.5" strokeDasharray="6 5" />}
               {draftPoints.map((point, index) => <circle key={`${point.x}-${point.y}-${index}`} cx={point.x} cy={point.y} r="5" fill="#f6cf62" stroke="#102b39" strokeWidth="2" />)}
               {snapIndicator && <g className={`snap-marker ${snapIndicator.kind.toLowerCase()}`}><circle cx={snapIndicator.point.x} cy={snapIndicator.point.y} r="9" fill="none" strokeWidth="2" /><path d={`M${snapIndicator.point.x - 14} ${snapIndicator.point.y}H${snapIndicator.point.x + 14}M${snapIndicator.point.x} ${snapIndicator.point.y - 14}V${snapIndicator.point.y + 14}`} strokeWidth="1.5" /></g>}
               {calibrationPoints.length > 0 && <><line x1={calibrationPoints[0]!.x} y1={calibrationPoints[0]!.y} x2={calibrationPoints[1]?.x ?? hoverPoint?.x ?? calibrationPoints[0]!.x} y2={calibrationPoints[1]?.y ?? hoverPoint?.y ?? calibrationPoints[0]!.y} stroke="#ff9c7b" strokeWidth="2" strokeDasharray="5 4" />{calibrationPoints.map((point, index) => <circle key={index} cx={point.x} cy={point.y} r="7" fill="#ff9c7b" />)}</>}
             </g>
           </svg>
-          {page.backgroundUrl && page.pdfPageNumber && <PdfPlanLayer url={page.backgroundUrl} pageNumber={page.pdfPageNumber} zoom={zoom} pan={pan} />}
-          {page.backgroundUrl && page.pdfPageNumber && comparisonPage?.backgroundUrl && comparisonPage.pdfPageNumber && <PdfReviewOverlay reference={{ url: comparisonPage.backgroundUrl, pageNumber: comparisonPage.pdfPageNumber, tone: "reference" }} current={{ url: page.backgroundUrl, pageNumber: page.pdfPageNumber, tone: "current" }} zoom={zoom} pan={pan} />}
+          {page.backgroundUrl && page.pdfPageNumber && <PdfPlanLayer url={page.backgroundUrl} pageNumber={page.pdfPageNumber} pageSize={pageSize} viewport={viewport} />}
+          {page.backgroundUrl && page.pdfPageNumber && comparisonPage?.backgroundUrl && comparisonPage.pdfPageNumber && <PdfReviewOverlay reference={{ url: comparisonPage.backgroundUrl, pageNumber: comparisonPage.pdfPageNumber, tone: "reference" }} current={{ url: page.backgroundUrl, pageNumber: page.pdfPageNumber, tone: "current" }} viewport={viewport} currentPageSize={pageSize} referencePageSize={{ width: Number(comparisonPage.pageWidth) || pageSize.width, height: Number(comparisonPage.pageHeight) || pageSize.height }} />}
           {reviewDocumentId && !comparisonPage && <div className="review-missing-page">لا توجد صفحة مقابلة برقم {page.pdfPageNumber} في النسخة المختارة.</div>}
+          {isLegacyPage && <div className="legacy-coordinate-warning" role="alert"><strong>قياسات هذه الصفحة قديمة وغير قابلة للاعتماد.</strong><span>سيُعاد إسقاط الرسم على أبعاد الصفحة، وتُمسح المعايرة الحالية. يجب إدخال المقياس من جديد بعد التحويل.</span><Button size="sm" onClick={() => { if (projectId && window.confirm("سيُحوّل الرسم إلى إحداثيات الصفحة وتُمسح المعايرة والسياقات المحفوظة. هل تريد المتابعة؟")) convertLegacyPageGeometry.mutate({ projectId, pageId: page.id, pageWidth: pageSize.width, pageHeight: pageSize.height }); }} disabled={convertLegacyPageGeometry.isPending}>{convertLegacyPageGeometry.isPending ? "جارٍ التحويل" : "تحويل الصفحة وإعادة المعايرة"}</Button></div>}
           <div className="viewport-controls"><button onClick={() => setZoom((value) => Math.min(3.2, value + .15))} aria-label="تكبير"><ZoomIn size={18} /></button><button onClick={() => setZoom((value) => Math.max(.55, value - .15))} aria-label="تصغير"><ZoomOut size={18} /></button><button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} aria-label="إعادة ضبط العرض"><Expand size={18} /></button></div>
           <div className="canvas-coordinates">{hoverPoint ? `X ${hoverPoint.x.toFixed(1)} / Y ${hoverPoint.y.toFixed(1)}` : "حرّك المؤشر لإظهار الإحداثيات"}</div>
         </section>
@@ -822,13 +852,14 @@ export default function WorkspacePage() {
   );
 }
 
-function MeasurementShape({ item, selected }: { item: Item; selected: boolean }) {
-  const strokeWidth = selected ? 4 : 2.5;
+function MeasurementShape({ item, selected, screenScale }: { item: Item; selected: boolean; screenScale: number }) {
+  const pixel = 1 / Math.max(screenScale, 0.0001);
+  const strokeWidth = (selected ? 4 : 2.5) * pixel;
   if (item.kind === "AREA" || item.kind === "ROOF_AREA" || item.kind === "VOLUME") {
     const rings = item.geometry.rings ?? [];
-    return <g fillRule="evenodd"><path d={rings.map((ring) => `${ring.map((point, index) => `${index === 0 ? "M" : "L"}${point.x} ${point.y}`).join(" ")} Z`).join(" ")} fill={`${item.color}24`} stroke={item.color} strokeWidth={strokeWidth} fillRule="evenodd" />{rings.flatMap((ring, ringIndex) => ring.map((point, pointIndex) => <circle key={`${ringIndex}-${pointIndex}`} cx={point.x} cy={point.y} r={selected ? 5 : 3} fill={item.color} />))}</g>;
+    return <g fillRule="evenodd"><path d={rings.map((ring) => `${ring.map((point, index) => `${index === 0 ? "M" : "L"}${point.x} ${point.y}`).join(" ")} Z`).join(" ")} fill={`${item.color}24`} stroke={item.color} strokeWidth={strokeWidth} fillRule="evenodd" />{rings.flatMap((ring, ringIndex) => ring.map((point, pointIndex) => <circle key={`${ringIndex}-${pointIndex}`} cx={point.x} cy={point.y} r={(selected ? 5 : 3) * pixel} fill={item.color} />))}</g>;
   }
-  if (item.kind === "COUNT") return <g>{(item.geometry.marks ?? []).map((point, index) => <g key={index}><circle cx={point.x} cy={point.y} r={10} fill={`${item.color}44`} stroke={item.color} strokeWidth={strokeWidth} /><text x={point.x} y={point.y + 4} textAnchor="middle" fill={item.color} fontSize="10">{index + 1}</text></g>)}</g>;
+  if (item.kind === "COUNT") return <g>{(item.geometry.marks ?? []).map((point, index) => <g key={index}><circle cx={point.x} cy={point.y} r={10 * pixel} fill={`${item.color}44`} stroke={item.color} strokeWidth={strokeWidth} /><text x={point.x} y={point.y + 4 * pixel} textAnchor="middle" fill={item.color} fontSize={10 * pixel}>{index + 1}</text></g>)}</g>;
   const points = item.geometry.points ?? [];
   if (item.kind === "SEGMENT") return <g>{Array.from({ length: Math.floor(points.length / 2) }, (_, index) => <line key={index} x1={points[index * 2]!.x} y1={points[index * 2]!.y} x2={points[index * 2 + 1]!.x} y2={points[index * 2 + 1]!.y} stroke={item.color} strokeWidth={strokeWidth} />)}</g>;
   return <polyline points={points.map((point) => `${point.x},${point.y}`).join(" ")} fill="none" stroke={item.color} strokeWidth={strokeWidth} />;

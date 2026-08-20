@@ -14,7 +14,17 @@ data class ImportedNativeWorkspace(
 )
 
 data class CloudProjectPoint(val x: Double, val y: Double)
-data class CloudProjectPage(val sourceId: String, val name: String, val scaleDrawingDistance: String?, val scaleWorldDistance: String?, val scaleUnit: String?)
+data class CloudProjectPage(
+    val sourceId: String,
+    val name: String,
+    val scaleDrawingDistance: String?,
+    val scaleWorldDistance: String?,
+    val scaleUnit: String?,
+    val pageWidth: Double? = null,
+    val pageHeight: Double? = null,
+    val pageRotation: Int = 0,
+    val geometrySpace: String = "LEGACY_VIEWBOX"
+)
 data class CloudProjectGeometry(val points: List<CloudProjectPoint> = emptyList(), val rings: List<List<CloudProjectPoint>> = emptyList(), val marks: List<CloudProjectPoint> = emptyList(), val slopeRise: Double? = null, val slopeRun: Double? = null, val depth: Double? = null)
 data class CloudProjectItem(val pageSourceId: String, val kind: String, val geometry: CloudProjectGeometry, val multiplier: String)
 data class CloudProjectFileData(val projectName: String, val pages: List<CloudProjectPage>, val items: List<CloudProjectItem>)
@@ -44,22 +54,34 @@ object NativeCloudProjectImporter {
 
     private fun parse(source: String): CloudProjectFileData {
         val root = JSONObject(source)
-        require(root.optString("format") == "takeoff-project" && root.optInt("version") == 1) { "تنسيق ملف المشروع غير مدعوم." }
+        val version = root.getInt("version")
+        require(root.optString("format") == "takeoff-project" && version in setOf(1, 2)) { "تنسيق ملف المشروع غير مدعوم." }
         val projectName = root.getJSONObject("project").getString("name")
-        val pages = root.getJSONArray("pages").toCloudPages()
+        val pages = root.getJSONArray("pages").toCloudPages(version)
         val items = root.getJSONArray("items").toCloudItems()
         return CloudProjectFileData(projectName, pages, items)
     }
 
-    private fun JSONArray.toCloudPages(): List<CloudProjectPage> = buildList {
+    private fun JSONArray.toCloudPages(version: Int): List<CloudProjectPage> = buildList {
         for (index in 0 until length()) {
             val page = getJSONObject(index)
+            val geometrySpace = if (version == 1) "LEGACY_VIEWBOX" else page.getString("geometrySpace")
+            require(geometrySpace == "LEGACY_VIEWBOX" || geometrySpace == "PAGE_POINTS") { "مساحة إحداثيات الصفحة غير صالحة." }
+            val pageWidth = page.optString("pageWidth").toDoubleOrNull()
+            val pageHeight = page.optString("pageHeight").toDoubleOrNull()
+            val pageRotation = if (version == 1) 0 else page.getInt("pageRotation")
+            if (geometrySpace == "PAGE_POINTS") require(pageWidth != null && pageHeight != null && pageWidth.isFinite() && pageHeight.isFinite() && pageWidth > 0 && pageHeight > 0) { "أبعاد صفحة PDF غير صالحة." }
+            require(pageRotation in setOf(0, 90, 180, 270)) { "دوران صفحة PDF غير صالح." }
             add(CloudProjectPage(
                 sourceId = page.getString("sourceId"),
                 name = page.getString("name"),
                 scaleDrawingDistance = page.optString("scaleDrawingDistance").ifBlank { null },
                 scaleWorldDistance = page.optString("scaleWorldDistance").ifBlank { null },
-                scaleUnit = page.optString("scaleUnit").ifBlank { null }
+                scaleUnit = page.optString("scaleUnit").ifBlank { null },
+                pageWidth = pageWidth,
+                pageHeight = pageHeight,
+                pageRotation = pageRotation,
+                geometrySpace = geometrySpace
             ))
         }
     }

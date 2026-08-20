@@ -6,6 +6,23 @@ import org.junit.Test
 
 class NativeCloudProjectImporterTest {
     @Test
+    fun `imports page-point project file version two`() {
+        val imported = NativeCloudProjectImporter.import(
+            """{
+              "format":"takeoff-project","version":2,"exportedAt":"2026-08-20T00:00:00.000Z",
+              "project":{"name":"مشروع v2","clientName":null,"location":null,"currency":"USD","lengthUnit":"m"},
+              "pages":[{"sourceId":"page-v2","name":"مخطط PDF","sortOrder":0,"scaleDrawingDistance":"72","scaleWorldDistance":"1","scaleUnit":"m","pageWidth":"1440.0000","pageHeight":"864.0000","pageRotation":0,"geometrySpace":"PAGE_POINTS"}],
+              "items":[{"sourceId":"item-v2","pageSourceId":"page-v2","kind":"LINEAR","name":"جدار","color":"#00aaff","geometry":{"points":[{"x":72,"y":72},{"x":144,"y":72}]},"rate":"0","multiplier":"1"}]
+            }""".trimIndent()
+        )
+
+        assertEquals("مشروع v2", imported.project.name)
+        assertEquals(72.0, imported.measurements.single().value, 0.00001)
+        assertNotNull(imported.calibration)
+        assertEquals(1.0 / 72.0, imported.calibration!!.factor, 0.00001)
+    }
+
+    @Test
     fun `imports cloud project geometry cutouts and calibration deterministically`() {
         val imported = NativeCloudProjectImporter.import(
             CloudProjectFileData(

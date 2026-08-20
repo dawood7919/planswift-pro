@@ -21,7 +21,7 @@ vi.mock("../client/src/lib/trpc", () => ({
     useUtils: () => ({ projects: { get: { invalidate }, }, templates: { list: { invalidate }, folders: { list: { invalidate } } } }),
     projects: {
       get: { useQuery: () => ({ data: workspace, isLoading: false }) },
-      saveWorkspace: { useMutation: () => mutation }, addBlankPage: { useMutation: () => mutation }, renamePage: { useMutation: () => mutation }, deletePage: { useMutation: () => mutation }, reorderPages: { useMutation: () => mutation }, exportProjectFile: { useMutation: () => mutation }, createVersion: { useMutation: () => mutation }, restoreVersion: { useMutation: () => mutation }, createScaleContext: { useMutation: () => mutation }, activateScaleContext: { useMutation: () => mutation }, deleteScaleContext: { useMutation: () => mutation }, createReview: { useMutation: () => mutation }, deleteReview: { useMutation: () => mutation }, createAnnotation: { useMutation: () => mutation }, deleteAnnotation: { useMutation: () => mutation },
+      saveWorkspace: { useMutation: () => mutation }, addBlankPage: { useMutation: () => mutation }, renamePage: { useMutation: () => mutation }, deletePage: { useMutation: () => mutation }, convertLegacyPageGeometry: { useMutation: () => mutation }, reorderPages: { useMutation: () => mutation }, exportProjectFile: { useMutation: () => mutation }, createVersion: { useMutation: () => mutation }, restoreVersion: { useMutation: () => mutation }, createScaleContext: { useMutation: () => mutation }, activateScaleContext: { useMutation: () => mutation }, deleteScaleContext: { useMutation: () => mutation }, createReview: { useMutation: () => mutation }, deleteReview: { useMutation: () => mutation }, createAnnotation: { useMutation: () => mutation }, deleteAnnotation: { useMutation: () => mutation },
     },
     auth: { createNativeSession: { useMutation: () => mutation } },
     templates: { list: { useQuery: () => ({ data: templates }) }, create: { useMutation: () => mutation }, update: { useMutation: () => mutation }, delete: { useMutation: () => mutation }, folders: { list: { useQuery: () => ({ data: [] }) }, create: { useMutation: () => mutation }, delete: { useMutation: () => mutation } }, costItems: { create: { useMutation: () => mutation }, delete: { useMutation: () => mutation } } },
@@ -174,7 +174,7 @@ describe("WorkspacePage search integration", () => {
     const view = render(createElement(WorkspacePage));
     const root = within(view.container);
     expect(root.getByRole("application")).toBeTruthy();
-    const snapButton = root.getByRole("button", { name: /التقاط/ });
+    const snapButton = root.getByRole("button", { name: "التقاط عناصر" });
     fireEvent.click(snapButton);
     expect(snapButton.getAttribute("aria-pressed")).toBe("false");
     fireEvent.change(root.getByPlaceholderText("اسم، نوع، أو قالب"), { target: { value: "ثانوية" } });
