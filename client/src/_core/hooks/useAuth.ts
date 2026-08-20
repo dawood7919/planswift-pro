@@ -51,10 +51,6 @@ export function useAuth(options?: UseAuthOptions) {
   }, [logoutMutation, utils]);
 
   const state = useMemo(() => {
-    localStorage.setItem(
-      "manus-runtime-user-info",
-      JSON.stringify(meQuery.data)
-    );
     return {
       user: meQuery.data ?? null,
       loading: meQuery.isLoading || logoutMutation.isPending,
@@ -68,6 +64,14 @@ export function useAuth(options?: UseAuthOptions) {
     logoutMutation.error,
     logoutMutation.isPending,
   ]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("manus-runtime-user-info", JSON.stringify(meQuery.data));
+    } catch {
+      // قد تمنع نافذة خاصة أو تضمين مقيّد التخزين المحلي؛ المصادقة نفسها لا تعتمد عليه.
+    }
+  }, [meQuery.data]);
 
   useEffect(() => {
     if (!redirectOnUnauthenticated) return;

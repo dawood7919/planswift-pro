@@ -1,7 +1,10 @@
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/_core/hooks/useAuth";
+import { startLogin } from "@/const";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { trpc } from "@/lib/trpc";
+import { canLoadProjects, getProjectsAccessState } from "@/lib/projectsAccess";
 import { readProjectImportFile, triggerProjectFileDownload } from "@/lib/projectFileBrowser";
 import { ArrowLeft, Download, FileUp, FolderPlus, MapPin, Plus, Ruler } from "lucide-react";
 import { FormEvent, useRef, useState } from "react";
@@ -11,7 +14,11 @@ import { useLocation } from "wouter";
 export default function ProjectsPage() {
   const [, setLocation] = useLocation();
   const utils = trpc.useUtils();
-  const projectsQuery = trpc.projects.list.useQuery();
+  const { user, loading: isAuthLoading, error: authError, refresh: refreshAuth } = useAuth();
+  const accessState = getProjectsAccessState({ isAuthLoading, userId: user?.id });
+  const projectsQuery = trpc.projects.list.useQuery(undefined, {
+    enabled: canLoadProjects(accessState),
+  });
   const [isCreating, setIsCreating] = useState(false);
   const [name, setName] = useState("");
   const [clientName, setClientName] = useState("");
@@ -52,6 +59,24 @@ export default function ProjectsPage() {
       triggerProjectFileDownload(content);
       toast.success(`تم تنزيل نسخة ${projectName}.`);
     } });
+  }
+
+  if (accessState === "auth-loading") {
+    return <div className="workspace-loading" dir="rtl">جارٍ التحقق من جلسة الدخول…</div>;
+  }
+
+  if (accessState === "guest") {
+    return (
+      <section className="workspace-empty large-empty" dir="rtl" aria-live="polite">
+        <span className="empty-symbol"><FolderPlus size={28} /></span>
+        <h1>سجّل الدخول لعرض مشاريعك</h1>
+        <p>{authError ? "تعذر التحقق من جلسة الدخول. أعد المحاولة أو سجّل الدخول من جديد." : "تحتاج إلى جلسة دخول لحماية المخططات والكميات والتقديرات الخاصة بك."}</p>
+        <div className="flex gap-3 flex-wrap justify-center">
+          {authError ? <Button variant="outline" onClick={() => void refreshAuth()}>إعادة محاولة التحقق</Button> : null}
+          <Button className="workspace-primary" onClick={() => startLogin()}>تسجيل الدخول</Button>
+        </div>
+      </section>
+    );
   }
 
   return (
