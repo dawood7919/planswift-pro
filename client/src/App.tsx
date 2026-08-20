@@ -7,6 +7,7 @@ import DashboardLayout from "./components/DashboardLayout";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 import ProjectsPage from "./pages/ProjectsPage";
+import ProjectPage from "./pages/ProjectPage";
 import WorkspacePage from "./pages/WorkspacePage";
 
 function Router() {
@@ -15,6 +16,7 @@ function Router() {
     <Switch>
       <Route path={"/"} component={Home} />
       <Route path={"/projects"}><DashboardLayout><ProjectsPage /></DashboardLayout></Route>
+      <Route path={"/projects/:projectId"}><DashboardLayout><ProjectPage /></DashboardLayout></Route>
       <Route path={"/workspace/:projectId"}><DashboardLayout><WorkspacePage /></DashboardLayout></Route>
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}

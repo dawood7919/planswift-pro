@@ -105,7 +105,7 @@ export default function ProjectsPage() {
         )}
         {projectsQuery.data?.map((project) => (
           <article className="project-card" key={project.id}>
-            <button className="project-card-open" onClick={() => setLocation(`/workspace/${project.id}`)} aria-label={`فتح ${project.name}`}><span className="project-mark"><Ruler size={21} /></span><span className="project-card-copy"><b>{project.name}</b><small>{project.clientName || "مشروع غير مصنف"}</small><small className="project-location"><MapPin size={12} />{project.location || "الموقع غير محدد"}</small></span><span className="project-card-meta"><span>{project.lengthUnit}</span><ArrowLeft size={18} /></span></button>
+            <button className="project-card-open" onClick={() => setLocation(`/projects/${project.id}`)} aria-label={`فتح ${project.name}`}><span className="project-mark"><Ruler size={21} /></span><span className="project-card-copy"><b>{project.name}</b><small>{project.clientName || "مشروع غير مصنف"}</small><small className="project-location"><MapPin size={12} />{project.location || "الموقع غير محدد"}</small></span><span className="project-card-meta"><span>{project.lengthUnit}</span><ArrowLeft size={18} /></span></button>
             <button className="project-export" onClick={() => downloadProjectFile(project.id, project.name)} disabled={exportProject.isPending} aria-label={`تنزيل نسخة ${project.name}`}><Download size={14} />نسخة</button>
           </article>
         ))}
