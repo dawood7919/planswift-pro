@@ -293,6 +293,19 @@ export const ar = {
   "workspace.toast.costItemCreateFailed": "تعذر حفظ بند التكلفة.",
   "workspace.toast.costItemDeleted": "حُذف بند التكلفة.",
   "workspace.toast.costItemDeleteFailed": "تعذر حذف بند التكلفة.",
+  "workspace.annotation.title": "ملاحظة على المخطط",
+  "workspace.annotation.description": "اكتب الملاحظة ثم اختر أداة «ملاحظة» وانقر موضعها على الصفحة.",
+  "workspace.annotation.placeholder": "نص الملاحظة",
+  "workspace.annotation.color": "لون الملاحظة",
+  "workspace.annotation.place": "وضع الملاحظة",
+  "workspace.annotation.delete": "حذف الملاحظة",
+  "workspace.annotation.empty": "لا توجد ملاحظات محفوظة على هذه الصفحة.",
+  "workspace.multiplier.title": "عامل التكرار",
+  "workspace.multiplier.units": "عدد الوحدات المتكررة",
+  "workspace.multiplier.itemAria": "عامل تكرار العنصر",
+  "workspace.multiplier.geometryQuantity": "الكمية الهندسية × العامل =",
+  "workspace.costAudit.title": "تفصيل تكلفة العنصر",
+  "workspace.costAudit.waste": "هالك",
 } as const;
 
 export type TranslationKey = keyof typeof ar;
