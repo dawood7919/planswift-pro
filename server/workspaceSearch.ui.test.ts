@@ -224,4 +224,18 @@ describe("WorkspacePage search integration", () => {
     fireEvent.click(root.getByRole("button", { name: "فتح لوحة الصفحات" }));
     expect(shell.getAttribute("data-navigator")).toBe("open");
   });
+
+  it("never generates two items with the same name when duplicating", () => {
+    const view = render(createElement(WorkspacePage));
+    const root = within(view.container);
+    // Item names are uniquely indexed per page; a clash aborts the whole save.
+    fireEvent.click([...view.container.querySelectorAll(".item-search-results button")].find((button) => button.textContent?.includes("فتحات رئيسية"))!);
+    for (let round = 0; round < 3; round += 1) {
+      fireEvent.click([...view.container.querySelectorAll(".selected-card button")].find((button) => button.textContent?.includes("نسخ"))!);
+    }
+    fireEvent.click(root.getByRole("button", { name: /حفظ$/ }));
+    const saved = mutation.mutate.mock.calls.at(-1)![0] as { items: Array<{ name: string }> };
+    const names = saved.items.map((entry) => entry.name);
+    expect(names).toHaveLength(new Set(names).size);
+  });
 });

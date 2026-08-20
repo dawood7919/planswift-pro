@@ -93,6 +93,10 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
+type DbClient = ReturnType<typeof drizzle>;
+/** Either the pooled client or an open transaction, so helpers work inside both. */
+type DbExecutor = DbClient | Parameters<Parameters<DbClient["transaction"]>[0]>[0];
+
 function requireDb(db: Awaited<ReturnType<typeof getDb>>) {
   if (!db) throw new Error("DATABASE_UNAVAILABLE");
   return db;
@@ -282,7 +286,7 @@ async function requireOwnedProject(ownerId: number, projectId: string) {
 }
 
 async function appendProjectCommand(
-  db: ReturnType<typeof drizzle>,
+  db: DbExecutor,
   projectId: string,
   type: string,
   payload: Record<string, unknown>,
@@ -297,7 +301,7 @@ async function appendProjectCommand(
   });
 }
 
-async function normalizePageOrder(db: ReturnType<typeof drizzle>, projectId: string) {
+async function normalizePageOrder(db: DbExecutor, projectId: string) {
   const pages = await db.select({ id: projectPages.id, sortOrder: projectPages.sortOrder }).from(projectPages).where(eq(projectPages.projectId, projectId)).orderBy(projectPages.sortOrder);
   const offset = Math.max(...pages.map((page) => page.sortOrder), 0) + pages.length + 1;
   for (const page of pages) {
@@ -333,10 +337,14 @@ export async function deleteProjectPage(ownerId: number, projectId: string, page
   const pages = await db.select({ id: projectPages.id }).from(projectPages).where(eq(projectPages.projectId, projectId)).orderBy(projectPages.sortOrder);
   if (pages.length <= 1) throw new Error("LAST_PAGE_REQUIRED");
   if (!pages.some((page) => page.id === pageId)) throw new Error("PAGE_NOT_FOUND");
-  await db.delete(takeoffItems).where(and(eq(takeoffItems.projectId, projectId), eq(takeoffItems.pageId, pageId)));
-  await db.delete(projectPages).where(and(eq(projectPages.id, pageId), eq(projectPages.projectId, projectId)));
-  const remaining = await normalizePageOrder(db, projectId);
-  await appendProjectCommand(db, projectId, "DELETE_PAGE", { pageId });
+  // Deleting the page and its measurements must not be observable as two separate states.
+  const remaining = await db.transaction(async (tx) => {
+    await tx.delete(takeoffItems).where(and(eq(takeoffItems.projectId, projectId), eq(takeoffItems.pageId, pageId)));
+    await tx.delete(projectPages).where(and(eq(projectPages.id, pageId), eq(projectPages.projectId, projectId)));
+    const ordered = await normalizePageOrder(tx, projectId);
+    await appendProjectCommand(tx, projectId, "DELETE_PAGE", { pageId });
+    return ordered;
+  });
   return { deletedPageId: pageId, nextPageId: remaining[0]?.id ?? null };
 }
 
@@ -369,12 +377,14 @@ export async function migratePageGeometry(
   }
 
   const pageItems = await db.select().from(takeoffItems).where(and(eq(takeoffItems.projectId, projectId), eq(takeoffItems.pageId, pageId)));
+  // Rebasing only some items would leave one page holding two coordinate spaces at once.
+  await db.transaction(async (tx) => {
   for (const item of pageItems) {
     const geometry = fromLegacyViewBoxGeometry(JSON.parse(item.geometryJson), resolved);
-    await db.update(takeoffItems).set({ geometryJson: JSON.stringify(geometry) }).where(eq(takeoffItems.id, item.id));
+    await tx.update(takeoffItems).set({ geometryJson: JSON.stringify(geometry) }).where(eq(takeoffItems.id, item.id));
   }
 
-  await db.update(projectPages).set({
+  await tx.update(projectPages).set({
     pageWidth: resolved.width.toFixed(4),
     pageHeight: resolved.height.toFixed(4),
     geometrySpace: "PAGE_POINTS",
@@ -384,7 +394,8 @@ export async function migratePageGeometry(
     activeScaleContextId: null,
   }).where(and(eq(projectPages.id, pageId), eq(projectPages.projectId, projectId)));
 
-  await appendProjectCommand(db, projectId, "MIGRATE_PAGE_GEOMETRY", { pageId, itemCount: pageItems.length, pageWidth: resolved.width, pageHeight: resolved.height });
+    await appendProjectCommand(tx, projectId, "MIGRATE_PAGE_GEOMETRY", { pageId, itemCount: pageItems.length, pageWidth: resolved.width, pageHeight: resolved.height });
+  });
   return { pageId, itemCount: pageItems.length, requiresRecalibration: true as const };
 }
 
@@ -395,14 +406,18 @@ export async function reorderProjectPages(ownerId: number, projectId: string, pa
     throw new Error("INVALID_PAGE_ORDER");
   }
   const offset = Math.max(...pages.map((page) => page.sortOrder), 0) + pages.length + 1;
-  for (const page of pages) {
-    await db.update(projectPages).set({ sortOrder: page.sortOrder + offset }).where(and(eq(projectPages.id, page.id), eq(projectPages.projectId, projectId)));
-  }
-  for (let sortOrder = 0; sortOrder < pageIds.length; sortOrder += 1) {
-    const pageId = pageIds[sortOrder]!;
-    await db.update(projectPages).set({ sortOrder }).where(and(eq(projectPages.id, pageId), eq(projectPages.projectId, projectId)));
-  }
-  await appendProjectCommand(db, projectId, "REORDER_PAGES", { pageIds });
+  // sortOrder is uniquely indexed per project, so the rows are parked above the range
+  // before being renumbered. Interrupting that leaves the project unopenable.
+  await db.transaction(async (tx) => {
+    for (const page of pages) {
+      await tx.update(projectPages).set({ sortOrder: page.sortOrder + offset }).where(and(eq(projectPages.id, page.id), eq(projectPages.projectId, projectId)));
+    }
+    for (let sortOrder = 0; sortOrder < pageIds.length; sortOrder += 1) {
+      const pageId = pageIds[sortOrder]!;
+      await tx.update(projectPages).set({ sortOrder }).where(and(eq(projectPages.id, pageId), eq(projectPages.projectId, projectId)));
+    }
+    await appendProjectCommand(tx, projectId, "REORDER_PAGES", { pageIds });
+  });
   return { pageIds };
 }
 
@@ -720,6 +735,32 @@ export type SaveWorkspaceInput = {
   commandEvents: Array<{ type: string; payloadJson: string }>;
 };
 
+/**
+ * A save replaces every item on one page, so an item addressed to a different page would be
+ * silently dropped by the delete that precedes the insert.
+ */
+export function assertItemsBelongToPage(items: SaveWorkspaceInput["items"], pageId: string): void {
+  if (items.some((item) => item.pageId !== pageId)) throw new Error("ITEM_PAGE_MISMATCH");
+}
+
+/** `takeoffItems` has a unique index on (pageId, name); a clash would abort the whole save. */
+export function assertUniqueItemNames(items: SaveWorkspaceInput["items"]): void {
+  const seen = new Set<string>();
+  for (const item of items) {
+    if (seen.has(item.name)) throw new Error("DUPLICATE_ITEM_NAME");
+    seen.add(item.name);
+  }
+}
+
+/** `geometryJson` is a MySQL TEXT column, so an oversized polyline would be truncated. */
+const MAX_GEOMETRY_BYTES = 60_000;
+
+export function assertGeometryFits(items: SaveWorkspaceInput["items"]): void {
+  for (const item of items) {
+    if (Buffer.byteLength(item.geometryJson, "utf8") > MAX_GEOMETRY_BYTES) throw new Error("GEOMETRY_TOO_LARGE");
+  }
+}
+
 export async function saveProjectWorkspace(ownerId: number, projectId: string, input: SaveWorkspaceInput) {
   const db = requireDb(await getDb());
   const existing = await db.select({ id: projects.id }).from(projects).where(and(eq(projects.id, projectId), eq(projects.ownerId, ownerId))).limit(1);
@@ -729,20 +770,30 @@ export async function saveProjectWorkspace(ownerId: number, projectId: string, i
     const templates = await db.select({ id: takeoffTemplates.id }).from(takeoffTemplates).where(and(eq(takeoffTemplates.ownerId, ownerId), inArray(takeoffTemplates.id, templateIds)));
     assertOwnedTemplateIds(templateIds, templates);
   }
-  await db.update(projectPages).set({
-    name: input.page.name,
-    scaleDrawingDistance: input.page.scaleDrawingDistance === null ? null : input.page.scaleDrawingDistance?.toString(),
-    scaleWorldDistance: input.page.scaleWorldDistance === null ? null : input.page.scaleWorldDistance?.toString(),
-    scaleUnit: input.page.scaleUnit ?? null,
-  }).where(and(eq(projectPages.id, input.page.id), eq(projectPages.projectId, projectId)));
-  await db.delete(takeoffItems).where(and(eq(takeoffItems.projectId, projectId), eq(takeoffItems.pageId, input.page.id)));
-  if (input.items.length) {
-    await db.insert(takeoffItems).values(input.items.map((item) => ({ ...item, projectId })));
-  }
-  const lastCommand = await db.select({ sequence: projectCommands.sequence }).from(projectCommands).where(eq(projectCommands.projectId, projectId)).orderBy(desc(projectCommands.sequence)).limit(1);
-  const firstSequence = (lastCommand[0]?.sequence ?? 0) + 1;
-  const commandRows = input.commandEvents.map((event, index) => ({ id: nanoid(20), projectId, sequence: firstSequence + index, type: event.type, payloadJson: event.payloadJson }));
-  commandRows.push({ id: nanoid(20), projectId, sequence: firstSequence + commandRows.length, type: "SAVE_WORKSPACE", payloadJson: JSON.stringify({ itemCount: input.items.length }) });
-  await db.insert(projectCommands).values(commandRows);
+  // Every item must belong to the page being replaced, or the delete below would drop rows
+  // this save never intended to touch.
+  assertItemsBelongToPage(input.items, input.page.id);
+  assertUniqueItemNames(input.items);
+  assertGeometryFits(input.items);
+
+  // The page's items are replaced wholesale. Without a transaction a failed insert leaves
+  // the delete committed, destroying every measurement on the page.
+  await db.transaction(async (tx) => {
+    await tx.update(projectPages).set({
+      name: input.page.name,
+      scaleDrawingDistance: input.page.scaleDrawingDistance === null ? null : input.page.scaleDrawingDistance?.toString(),
+      scaleWorldDistance: input.page.scaleWorldDistance === null ? null : input.page.scaleWorldDistance?.toString(),
+      scaleUnit: input.page.scaleUnit ?? null,
+    }).where(and(eq(projectPages.id, input.page.id), eq(projectPages.projectId, projectId)));
+    await tx.delete(takeoffItems).where(and(eq(takeoffItems.projectId, projectId), eq(takeoffItems.pageId, input.page.id)));
+    if (input.items.length) {
+      await tx.insert(takeoffItems).values(input.items.map((item) => ({ ...item, projectId })));
+    }
+    const lastCommand = await tx.select({ sequence: projectCommands.sequence }).from(projectCommands).where(eq(projectCommands.projectId, projectId)).orderBy(desc(projectCommands.sequence)).limit(1);
+    const firstSequence = (lastCommand[0]?.sequence ?? 0) + 1;
+    const commandRows = input.commandEvents.map((event, index) => ({ id: nanoid(20), projectId, sequence: firstSequence + index, type: event.type, payloadJson: event.payloadJson }));
+    commandRows.push({ id: nanoid(20), projectId, sequence: firstSequence + commandRows.length, type: "SAVE_WORKSPACE", payloadJson: JSON.stringify({ itemCount: input.items.length }) });
+    await tx.insert(projectCommands).values(commandRows);
+  });
   return { saved: true };
 }

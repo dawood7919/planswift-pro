@@ -121,6 +121,18 @@ function createId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+/**
+ * Names are uniquely indexed per page, so a clash aborts the entire save. Counting existing
+ * items is not enough — deleting one frees a number that a later copy would reuse.
+ */
+function uniqueItemName(base: string, taken: Set<string>): string {
+  if (!taken.has(base)) return base;
+  for (let suffix = 2; ; suffix += 1) {
+    const candidate = `${base} ${suffix}`;
+    if (!taken.has(candidate)) return candidate;
+  }
+}
+
 function parseStoredItem(item: { id: string; pageId: string; kind: MeasurementKind; name: string; color: string; geometryJson: string; rate: string | number; multiplier?: string | number; templateId: string | null }) : Item {
   try {
     return { id: item.id, pageId: item.pageId, kind: item.kind, name: item.name, color: item.color, geometry: JSON.parse(item.geometryJson) as MeasurementGeometry, rate: String(item.rate), multiplier: String(item.multiplier ?? 1), templateId: item.templateId };
@@ -144,7 +156,12 @@ export default function WorkspacePage() {
   });
   const saveWorkspace = trpc.projects.saveWorkspace.useMutation({
     onSuccess: () => { setPendingCommands([]); toast.success("حُفظ المشروع مع صفحة القياس وعناصره."); utils.projects.get.invalidate(projectId); },
-    onError: (error) => toast.error(error.message || "تعذر حفظ المشروع."),
+    onError: (error) => toast.error(
+      error.message === "DUPLICATE_ITEM_NAME" ? "يوجد عنصران بالاسم نفسه في هذه الصفحة. غيّر أحدهما ثم أعد الحفظ."
+      : error.message === "GEOMETRY_TOO_LARGE" ? "هندسة أحد العناصر أكبر من الحد المسموح. قسّمها إلى عنصرين."
+      : error.message === "ITEM_PAGE_MISMATCH" ? "تعذر الحفظ: عنصر لا ينتمي إلى الصفحة الحالية."
+      : error.message || "تعذر حفظ المشروع.",
+    ),
   });
   const addBlankPage = trpc.projects.addBlankPage.useMutation({
     onSuccess: (createdPage) => { setActivePageId(createdPage.id); utils.projects.get.invalidate(projectId); toast.success("أُضيفت صفحة رسم فارغة."); },
@@ -448,7 +465,7 @@ export default function WorkspacePage() {
       id: createId(),
       pageId: page?.id ?? "",
       kind,
-      name: `${names[kind]} ${pageItems.filter((existing) => existing.kind === kind).length + 1}`,
+      name: uniqueItemName(`${names[kind]} ${pageItems.filter((existing) => existing.kind === kind).length + 1}`, new Set(pageItems.map((existing) => existing.name))),
       color: colors[kind],
       geometry,
       rate: "0",
@@ -766,7 +783,7 @@ export default function WorkspacePage() {
   function duplicateSelected() {
     if (!selected) return;
     pushHistory();
-    const copy = { ...selected, id: createId(), name: `${selected.name} — نسخة ${pageItems.length + 1}`, geometry: structuredClone(selected.geometry) };
+    const copy = { ...selected, id: createId(), name: uniqueItemName(`${selected.name} — نسخة`, new Set(pageItems.map((item) => item.name))), geometry: structuredClone(selected.geometry) };
     recordCommand("DUPLICATE_TAKEOFF", { sourceId: selected.id, itemId: copy.id });
     setItems((current) => [...current, copy]);
     setSelectedId(copy.id);
@@ -786,7 +803,12 @@ export default function WorkspacePage() {
   function duplicateSelectedGroup() {
     if (!selectedItems.length) return;
     pushHistory();
-    const copies = selectedItems.map((item, index) => ({ ...item, id: createId(), name: `${item.name} — نسخة ${index + 1}`, geometry: structuredClone(item.geometry) }));
+    const taken = new Set(pageItems.map((item) => item.name));
+    const copies = selectedItems.map((item) => {
+      const name = uniqueItemName(`${item.name} — نسخة`, taken);
+      taken.add(name);
+      return { ...item, id: createId(), name, geometry: structuredClone(item.geometry) };
+    });
     recordCommand("DUPLICATE_TAKEOFF_GROUP", { sourceIds: selectedItems.map((item) => item.id), copyIds: copies.map((item) => item.id) });
     setItems((current) => [...current, ...copies]);
     setSelectedId(copies[0]?.id ?? null);
