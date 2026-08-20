@@ -23,6 +23,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -154,6 +155,7 @@ private fun TakeoffNativeScreen(
     onMotionEvent: (android.view.MotionEvent, com.takeoff.nativeapp.measurement.PlanPoint, androidx.compose.ui.geometry.Offset) -> Unit
 ) {
     var isInspectorOpen by rememberSaveable { mutableStateOf(false) }
+    var showWorkspace by rememberSaveable { mutableStateOf(false) }
     Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFFEAF0F3)) {
         Column(modifier = Modifier.fillMaxSize()) {
             TakeoffCommandBar(
@@ -166,9 +168,15 @@ private fun TakeoffNativeScreen(
                 onClear = onClear,
                 onUndo = onUndo,
                 onExportReport = onExportReport,
-                onToggleInspector = { isInspectorOpen = !isInspectorOpen }
+                onToggleInspector = { showWorkspace = true; isInspectorOpen = !isInspectorOpen }
             )
-            BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(10.dp)) {
+            if (state.pdfBitmap == null && !state.isLoadingPlan && !showWorkspace) {
+                TakeoffStartScreen(
+                    onOpenPlan = onOpenPlan,
+                    onOpenWorkspace = { showWorkspace = true; isInspectorOpen = true },
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(10.dp)) {
                 val inspector = @Composable {
                     TakeoffInspector(
                         state = state,
@@ -249,6 +257,41 @@ private fun TakeoffNativeScreen(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TakeoffStartScreen(
+    onOpenPlan: () -> Unit,
+    onOpenWorkspace: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(modifier = modifier.padding(22.dp), contentAlignment = Alignment.Center) {
+        Surface(
+            color = Color.White,
+            shape = RoundedCornerShape(24.dp),
+            shadowElevation = 5.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(28.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text("مساحة عمل Takeoff", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
+                Text("ابدأ من مخطط PDF، عاير المقياس، ثم سجّل الكميات بطريقة قابلة للمراجعة.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                        Text("01  افتح المخطط", style = MaterialTheme.typography.titleSmall)
+                        Text("02  عاير المسافة الحقيقية", style = MaterialTheme.typography.titleSmall)
+                        Text("03  اختر أداة القياس وابدأ التقدير", style = MaterialTheme.typography.titleSmall)
+                    }
+                }
+                Button(onClick = onOpenPlan, modifier = Modifier.fillMaxWidth()) { Text("فتح مخطط PDF") }
+                Button(onClick = onOpenWorkspace, modifier = Modifier.fillMaxWidth()) { Text("فتح لوحة المشروع والمزامنة") }
+                Text("يعمل التطبيق محلياً، ويمكن ربطه بالمنصة من لوحة المشروع عند الحاجة.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             }
         }
     }
