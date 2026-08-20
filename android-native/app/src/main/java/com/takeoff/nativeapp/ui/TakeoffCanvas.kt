@@ -44,6 +44,7 @@ fun TakeoffCanvas(
     onOpenPlan: () -> Unit,
     onMotionEvent: (MotionEvent, PlanPoint, Offset) -> Unit
 ) {
+    val workspaceSummary = workspaceSummary(state.selectedTool, state.measurements.size, state.calibration?.unit)
     var viewport = remember { IntSize.Zero }
     val bitmap = state.pdfBitmap
     val referenceBitmap = state.referencePdfBitmap
@@ -55,7 +56,7 @@ fun TakeoffCanvas(
         val fitted = min(viewport.width / it.width.toFloat(), viewport.height / it.height.toFloat()) * state.zoom
         PdfFrame(Offset((viewport.width - it.width * fitted) / 2f, (viewport.height - it.height * fitted) / 2f) + state.pan, fitted)
     }
-    Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0C2735))) {
+    Box(modifier = Modifier.fillMaxSize().background(TakeoffCanvasBlue)) {
         androidx.compose.foundation.Canvas(
             modifier = Modifier
                 .fillMaxSize()
@@ -66,9 +67,9 @@ fun TakeoffCanvas(
                     true
                 }
         ) {
-            drawRect(Color(0xFF0C2735))
-            for (x in 0..size.width.toInt() step 48) drawLine(Color(0xFF153A4C), Offset(x.toFloat(), 0f), Offset(x.toFloat(), size.height), 1f)
-            for (y in 0..size.height.toInt() step 48) drawLine(Color(0xFF153A4C), Offset(0f, y.toFloat()), Offset(size.width, y.toFloat()), 1f)
+            drawRect(TakeoffCanvasBlue)
+            for (x in 0..size.width.toInt() step 48) drawLine(Color(0xFF1A485B), Offset(x.toFloat(), 0f), Offset(x.toFloat(), size.height), 1f)
+            for (y in 0..size.height.toInt() step 48) drawLine(Color(0xFF1A485B), Offset(0f, y.toFloat()), Offset(size.width, y.toFloat()), 1f)
             if (bitmap != null && frame != null) {
                 drawImage(bitmap.asImageBitmap(), dstOffset = IntOffset(frame.origin.x.toInt(), frame.origin.y.toInt()), dstSize = IntSize((bitmap.width * frame.scale).toInt(), (bitmap.height * frame.scale).toInt()))
                 if (referenceBitmap != null && referenceFrame != null && state.isReferenceOverlayVisible) {
@@ -88,7 +89,7 @@ fun TakeoffCanvas(
                                 val cutoutPoints = cutout.map(frame::toScreen)
                                 if (cutoutPoints.size > 2) {
                                     val cutoutPath = androidx.compose.ui.graphics.Path().apply { moveTo(cutoutPoints.first().x, cutoutPoints.first().y); cutoutPoints.drop(1).forEach { lineTo(it.x, it.y) }; close() }
-                                    drawPath(cutoutPath, Color(0x990C2735))
+                                    drawPath(cutoutPath, Color(0x99102E3D))
                                     drawPath(cutoutPath, Color(0xFFFFD078), style = Stroke(width = 3f))
                                 }
                             }
@@ -116,11 +117,17 @@ fun TakeoffCanvas(
                 }
             }
         }
-        Surface(modifier = Modifier.align(androidx.compose.ui.Alignment.TopStart).padding(12.dp), color = Color(0xCC102D3C), shape = MaterialTheme.shapes.medium) {
-            Text("${state.selectedTool.label}  •  ${state.measurements.size} عنصر", modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp), color = Color.White, style = MaterialTheme.typography.labelMedium)
+        Surface(modifier = Modifier.align(androidx.compose.ui.Alignment.TopStart).padding(12.dp), color = Color(0xD90C2634), shape = MaterialTheme.shapes.medium) {
+            Column(modifier = Modifier.padding(horizontal = 11.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("أداة نشطة", color = Color(0xFFB8CFDB), style = MaterialTheme.typography.labelSmall)
+                Text("${workspaceSummary.toolLabel}  ·  ${workspaceSummary.measurementsLabel}", color = TakeoffSignal, style = MaterialTheme.typography.labelLarge)
+            }
         }
         if (state.isReferenceOverlayVisible) Surface(modifier = Modifier.align(androidx.compose.ui.Alignment.TopEnd).padding(12.dp), color = Color(0xD6BD6A2E), shape = MaterialTheme.shapes.medium) {
             Text("مراجعة: ${state.referencePdfLabel ?: "مرجع"}", modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp), color = Color.White, style = MaterialTheme.typography.labelMedium)
+        }
+        Surface(modifier = Modifier.align(androidx.compose.ui.Alignment.BottomStart).padding(12.dp), color = Color(0xBF0C2634), shape = MaterialTheme.shapes.medium) {
+            Text("${state.inputSource}  ·  ${workspaceSummary.calibrationLabel}", modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp), color = Color(0xFFD8E9EF), style = MaterialTheme.typography.labelSmall)
         }
     }
 }

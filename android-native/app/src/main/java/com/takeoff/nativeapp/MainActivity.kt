@@ -24,6 +24,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -156,7 +157,7 @@ private fun TakeoffNativeScreen(
 ) {
     var isInspectorOpen by rememberSaveable { mutableStateOf(false) }
     var showWorkspace by rememberSaveable { mutableStateOf(false) }
-    Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFFEAF0F3)) {
+    Surface(modifier = Modifier.fillMaxSize(), color = com.takeoff.nativeapp.ui.TakeoffPaper) {
         Column(modifier = Modifier.fillMaxSize()) {
             TakeoffCommandBar(
                 projectName = state.project.name,
@@ -176,7 +177,7 @@ private fun TakeoffNativeScreen(
                     onOpenWorkspace = { showWorkspace = true; isInspectorOpen = true },
                     modifier = Modifier.fillMaxSize()
                 )
-            } else BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(10.dp)) {
+            } else BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 12.dp)) {
                 val inspector = @Composable {
                     TakeoffInspector(
                         state = state,
@@ -232,7 +233,7 @@ private fun TakeoffNativeScreen(
                         Box(modifier = Modifier.weight(1f).fillMaxSize()) { drawing() }
                         Surface(
                             modifier = Modifier.fillMaxSize().weight(0.38f),
-                            color = Color.White,
+                            color = com.takeoff.nativeapp.ui.TakeoffPaper,
                             shape = RoundedCornerShape(18.dp),
                             shadowElevation = 2.dp
                         ) { inspector() }
@@ -243,7 +244,7 @@ private fun TakeoffNativeScreen(
                         if (isInspectorOpen) {
                             Surface(
                                 modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().heightIn(max = 520.dp),
-                                color = Color.White,
+                                color = com.takeoff.nativeapp.ui.TakeoffPaper,
                                 shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp),
                                 shadowElevation = 12.dp
                             ) { inspector() }
@@ -268,30 +269,33 @@ private fun TakeoffStartScreen(
     onOpenWorkspace: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(modifier = modifier.padding(22.dp), contentAlignment = Alignment.Center) {
+    Box(modifier = modifier.background(com.takeoff.nativeapp.ui.TakeoffInk).padding(22.dp), contentAlignment = Alignment.Center) {
         Surface(
-            color = Color.White,
-            shape = RoundedCornerShape(24.dp),
-            shadowElevation = 5.dp,
+            color = Color(0xFFF8FAF7),
+            shape = RoundedCornerShape(28.dp),
+            shadowElevation = 10.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
-                modifier = Modifier.padding(28.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                modifier = Modifier.padding(26.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Text("مساحة عمل Takeoff", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
-                Text("ابدأ من مخطط PDF، عاير المقياس، ثم سجّل الكميات بطريقة قابلة للمراجعة.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                        Text("01  افتح المخطط", style = MaterialTheme.typography.titleSmall)
-                        Text("02  عاير المسافة الحقيقية", style = MaterialTheme.typography.titleSmall)
-                        Text("03  اختر أداة القياس وابدأ التقدير", style = MaterialTheme.typography.titleSmall)
+                Surface(color = com.takeoff.nativeapp.ui.TakeoffSignal, shape = RoundedCornerShape(12.dp)) {
+                    Text("TAKEOFF  /  WORKSPACE", modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp), style = MaterialTheme.typography.labelLarge, color = com.takeoff.nativeapp.ui.TakeoffInk)
+                }
+                Text("كل مخطط.\nقرار أوضح.", style = MaterialTheme.typography.headlineSmall, color = com.takeoff.nativeapp.ui.TakeoffInk)
+                Text("افتح مخطط PDF، عاير المقياس، ثم سجّل الكميات والتقدير في مساحة عمل مصممة للمراجعة.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Surface(color = Color(0xFFEAF0EC), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                        Text("تدفق العمل", style = MaterialTheme.typography.titleSmall, color = com.takeoff.nativeapp.ui.TakeoffInk)
+                        Text("01  افتح المخطط", style = MaterialTheme.typography.bodyMedium)
+                        Text("02  عاير المسافة الحقيقية", style = MaterialTheme.typography.bodyMedium)
+                        Text("03  قِس، قدّر، ثم راجع الإصدار", style = MaterialTheme.typography.bodyMedium)
                     }
                 }
-                Button(onClick = onOpenPlan, modifier = Modifier.fillMaxWidth()) { Text("فتح مخطط PDF") }
-                Button(onClick = onOpenWorkspace, modifier = Modifier.fillMaxWidth()) { Text("فتح لوحة المشروع والمزامنة") }
-                Text("يعمل التطبيق محلياً، ويمكن ربطه بالمنصة من لوحة المشروع عند الحاجة.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                Button(onClick = onOpenPlan, modifier = Modifier.fillMaxWidth()) { Text("فتح مخطط PDF والبدء") }
+                OutlinedButton(onClick = onOpenWorkspace, modifier = Modifier.fillMaxWidth()) { Text("لوحة المشروع والمزامنة") }
+                Text("يعمل التطبيق محلياً أولاً، ويمكن ربطه بالمنصة عند الحاجة من لوحة المشروع.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             }
         }
     }

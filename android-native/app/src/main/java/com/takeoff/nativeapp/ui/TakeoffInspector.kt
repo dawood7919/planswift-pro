@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -81,17 +82,16 @@ fun TakeoffInspector(
     var newCostWaste by rememberSaveable { mutableStateOf("0") }
     var deviceToken by rememberSaveable { mutableStateOf("") }
     var versionLabel by rememberSaveable { mutableStateOf("") }
-    Column(modifier = modifier.background(Color.White).verticalScroll(rememberScrollState()).padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text("لوحة المشروع", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-        Text("أدوات القياس، الطبقات، القوالب والإصدارات", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(state.project.name, style = MaterialTheme.typography.titleSmall)
-                Text(if (state.project.pages.isEmpty()) "لم تُضف صفحة بعد." else "${state.project.pages.size} صفحة · ${state.measurements.size} عنصر قياس", style = MaterialTheme.typography.bodySmall)
-                Text("الأداة النشطة: ${state.selectedTool.label}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+    Column(modifier = modifier.background(TakeoffPaper).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = TakeoffInk)) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text("لوحة المشروع", style = MaterialTheme.typography.titleLarge, color = TakeoffSignal)
+                Text(state.project.name, style = MaterialTheme.typography.titleMedium, color = Color.White)
+                Text(if (state.project.pages.isEmpty()) "أنشئ مساحة العمل بإضافة مخطط PDF." else "${state.project.pages.size} صفحة · ${state.measurements.size} عنصر قياس", style = MaterialTheme.typography.bodySmall, color = Color(0xFFB8CFDB))
+                Text("الأداة النشطة: ${state.selectedTool.label}", style = MaterialTheme.typography.labelLarge, color = TakeoffSignal)
             }
         }
-        Text("الصفحات", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
+        InspectorSectionHeader("الصفحات", "انتقل بين صفحات المخطط النشطة")
         state.project.pages.forEach { page ->
             Button(onClick = { onSelectPage(page.id) }, enabled = page.id != state.activePageId, modifier = Modifier.fillMaxWidth().padding(top = 3.dp)) {
                 Text("${if (page.id == state.activePageId) "●" else "○"} ${page.name}")
@@ -100,8 +100,7 @@ fun TakeoffInspector(
         Text("مصدر الإدخال: ${state.inputSource}", style = MaterialTheme.typography.bodySmall)
         state.pdfLabel?.let { Text("المخطط: $it", style = MaterialTheme.typography.bodySmall, maxLines = 1) }
         state.loadError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-        Spacer(Modifier.height(12.dp))
-        Text("ربط منصة Takeoff", style = MaterialTheme.typography.titleSmall)
+        InspectorSectionHeader("ربط منصة Takeoff", "جلسة جهاز مؤقتة لمشاريعك وملفاتك المملوكة")
         Text("أنشئ رمز Android مؤقتاً من مساحة العمل على الويب، ثم الصقه هنا. لا يُرسل الرمز إلى أي عنوان غير رابط المنصة المحدد.", style = MaterialTheme.typography.bodySmall)
         OutlinedTextField(value = state.cloudEndpoint, onValueChange = onCloudEndpointChange, label = { Text("رابط المنصة HTTPS") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
         OutlinedTextField(value = deviceToken, onValueChange = { deviceToken = it }, label = { Text("رمز ربط Android المؤقت") }, singleLine = true, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
@@ -133,8 +132,7 @@ fun TakeoffInspector(
         if (state.referencePdfBitmap != null) Button(onClick = onToggleReferenceOverlay, modifier = Modifier.fillMaxWidth().padding(top = 3.dp)) {
             Text(if (state.isReferenceOverlayVisible) "إخفاء طبقة المراجعة" else "إظهار طبقة المراجعة")
         }
-        Spacer(Modifier.height(12.dp))
-        Text("الإصدارات المحلية", style = MaterialTheme.typography.titleSmall)
+        InspectorSectionHeader("الإصدارات المحلية", "احفظ لقطة، قارن التغييرات، ثم استعد بأمان")
         OutlinedTextField(value = versionLabel, onValueChange = { versionLabel = it }, label = { Text("اسم لقطة الإصدار") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
         Button(onClick = { onCreateVersion(versionLabel); versionLabel = "" }, enabled = versionLabel.trim().isNotEmpty(), modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) { Text("حفظ لقطة") }
         state.versions.takeLast(8).reversed().forEach { version ->
@@ -147,8 +145,7 @@ fun TakeoffInspector(
             Text("فروق مع: ${comparison.referenceLabel} · ${comparison.totalChanges} تغيير", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
             Text("قياسات: +${comparison.addedMeasurements} / -${comparison.removedMeasurements} / ~${comparison.changedMeasurements} · تعليقات: +${comparison.addedAnnotations} / -${comparison.removedAnnotations} / ~${comparison.changedAnnotations} · صفحات: ${comparison.changedPages}", style = MaterialTheme.typography.bodySmall)
         }
-        Spacer(Modifier.height(12.dp))
-        Text("الطبقات", style = MaterialTheme.typography.titleSmall)
+        InspectorSectionHeader("الطبقات", "رتّب القياسات واعزل طبقات العمل")
         OutlinedTextField(
             value = newLayerName,
             onValueChange = { newLayerName = it },
@@ -169,8 +166,7 @@ fun TakeoffInspector(
                 Button(onClick = { onToggleLayer(layer.id) }) { Text(if (layer.visible) "إخفاء" else "إظهار") }
             }
         }
-        Spacer(Modifier.height(12.dp))
-        Text("القوالب والتقدير", style = MaterialTheme.typography.titleSmall)
+        InspectorSectionHeader("القوالب والتقدير", "مواد وعمالة ومعدات مرتبطة بكميات قابلة للتدقيق")
         OutlinedTextField(value = newTemplateName, onValueChange = { newTemplateName = it }, label = { Text("اسم Part أو Assembly") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
         OutlinedTextField(value = newTemplateUnit, onValueChange = { newTemplateUnit = it }, label = { Text("الوحدة") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
         OutlinedTextField(value = newTemplateRate, onValueChange = { newTemplateRate = it }, label = { Text("سعر الوحدة") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
@@ -199,8 +195,7 @@ fun TakeoffInspector(
             }
             selected?.costItems?.forEach { item -> Text("${item.kind.name} · ${item.name}: ${item.quantityFactor} ${item.unit} × ${item.rate} (هالك ${item.wastePercent}%)", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 2.dp)) }
         }
-        Spacer(Modifier.height(12.dp))
-        Text("المقياس", style = MaterialTheme.typography.titleSmall)
+        InspectorSectionHeader("المقياس", "ثبّت المعايرة قبل اعتماد الكميات")
         Text(
             state.calibration?.let { "1 وحدة رسم = ${"%.5f".format(it.factor)} ${it.unit}" }
                 ?: "غير معاير — اختر أداة «معايرة» ثم حدد نقطتين.",
@@ -221,15 +216,13 @@ fun TakeoffInspector(
             }
             Button(onClick = onApplyCalibration, modifier = Modifier.fillMaxWidth().padding(top = 5.dp)) { Text("اعتماد المقياس") }
         }
-        Spacer(Modifier.height(12.dp))
-        Text("قياسات متخصصة", style = MaterialTheme.typography.titleSmall)
+        InspectorSectionHeader("قياسات متخصصة", "معلمات السطح والحجم والتكرار والتعليقات")
         OutlinedTextField(value = state.roofRise, onValueChange = onRoofRiseChange, label = { Text("Roof rise") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
         OutlinedTextField(value = state.roofRun, onValueChange = onRoofRunChange, label = { Text("Roof run") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
         OutlinedTextField(value = state.volumeDepth, onValueChange = onVolumeDepthChange, label = { Text("عمق الحجم بوحدة المقياس") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
         OutlinedTextField(value = state.multiplierInput, onValueChange = onMultiplierChange, label = { Text("عامل التكرار للعناصر الجديدة") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
         OutlinedTextField(value = state.noteText, onValueChange = onNoteTextChange, label = { Text("نص الملاحظة الهندسية") }, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
-        Spacer(Modifier.height(12.dp))
-        Text("القياسات", style = MaterialTheme.typography.titleSmall)
+        InspectorSectionHeader("القياسات", "حدد العناصر، أدر الفتحات، وراجع التكلفة")
         val cutoutTarget = state.cutoutTargetId?.let { targetId -> state.measurements.firstOrNull { it.id == targetId } }
         Text(
             cutoutTarget?.let { "هدف الفتحات: ${it.kind.name} · ${it.cutouts.size} فتحة. اختر أداة «فتحة» وارسم الحلقة." }
@@ -259,8 +252,8 @@ fun TakeoffInspector(
                     MeasurementKind.AREA, MeasurementKind.ROOF_AREA, MeasurementKind.VOLUME -> measurement.value * (scale ?: 1.0) * (scale ?: 1.0)
                 }
                 val estimatedCost = state.templates.firstOrNull { it.id == measurement.templateId }?.let { EstimationEngine.estimate(it, scaledQuantity, measurement.multiplier).cost }
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(8.dp)) {
+                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+                    Column(Modifier.padding(12.dp)) {
                         val layerName = state.layers.firstOrNull { it.id == measurement.layerId }?.name ?: "طبقة محذوفة"
                         Text("${measurement.kind.name} · $layerName", style = MaterialTheme.typography.labelSmall)
                         Text("$value × ${"%.2f".format(measurement.multiplier)}", style = MaterialTheme.typography.bodyMedium)
