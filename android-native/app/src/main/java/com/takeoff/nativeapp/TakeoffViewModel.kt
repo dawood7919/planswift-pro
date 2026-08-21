@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.os.ParcelFileDescriptor
+import kotlin.math.sqrt
 import java.io.File
 import android.view.MotionEvent
 import androidx.compose.ui.geometry.Offset
@@ -41,7 +42,7 @@ enum class NativeTool(val label: String) {
 
 enum class MeasurementKind { COUNT, LINEAR, AREA, ROOF_AREA, VOLUME }
 
-data class NativeProjectPage(val id: Long, val name: String, val sourceUri: String? = null)
+data class NativeProjectPage(val id: Long, val name: String, val sourceUri: String? = null, val pageIndex: Int = 0)
 
 data class NativeProject(val id: Long, val name: String, val pages: List<NativeProjectPage>)
 
@@ -550,19 +551,41 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
         persistWorkspace()
     }
 
-    fun openPdf(context: Context, uri: Uri, label: String) {
+    /**
+     * Imports a document, registering one page per sheet so a multi-sheet drawing is fully
+     * navigable rather than collapsing to its first page.
+     */
+    fun openPdf(context: Context, uri: Uri, label: String, pageIndex: Int = 0) {
         _state.update { it.copy(isLoadingPlan = true, loadError = null, pdfLabel = label) }
         viewModelScope.launch(Dispatchers.IO) {
-            val result = runCatching { renderPdfPage(context, uri) }
+            val result = runCatching {
+                val sheetCount = readPdfPageCount(context, uri)
+                renderPdfPage(context, uri, pageIndex) to sheetCount
+            }
             withContext(Dispatchers.Main) {
-                result.onSuccess { bitmap -> _state.update { current ->
-                    val page = current.project.pages.firstOrNull { it.sourceUri == uri.toString() }
-                        ?: NativeProjectPage(nextPageId++, label, uri.toString())
+                result.onSuccess { (bitmap, sheetCount) -> _state.update { current ->
+                    val source = uri.toString()
+                    val known = current.project.pages.filter { it.sourceUri == source }
+                    val registered = if (known.size >= sheetCount) current.project.pages else {
+                        val baseName = label.substringBeforeLast('.')
+                        val added = (0 until sheetCount)
+                            .filter { index -> known.none { it.pageIndex == index } }
+                            .map { index ->
+                                NativeProjectPage(
+                                    nextPageId++,
+                                    if (sheetCount > 1) "$baseName — ${index + 1}" else baseName,
+                                    source,
+                                    index
+                                )
+                            }
+                        current.project.pages + added
+                    }
+                    val active = registered.first { it.sourceUri == source && it.pageIndex == pageIndex.coerceIn(0, sheetCount - 1) }
                     current.copy(
                         pdfBitmap = bitmap,
                         isLoadingPlan = false,
-                        activePageId = page.id,
-                        project = if (current.project.pages.any { it.id == page.id }) current.project else current.project.copy(pages = current.project.pages + page)
+                        activePageId = active.id,
+                        project = current.project.copy(pages = registered)
                     )
                 }.also { persistWorkspace() } }
                     .onFailure { error -> _state.update { it.copy(isLoadingPlan = false, loadError = error.message ?: "تعذر عرض المخطط.") } }
@@ -573,10 +596,13 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
     fun selectPage(context: Context, pageId: Long) {
         val page = _state.value.project.pages.firstOrNull { it.id == pageId } ?: return
         val sourceUri = page.sourceUri ?: return
-        openPdf(context, Uri.parse(sourceUri), page.name)
+        openPdf(context, Uri.parse(sourceUri), page.name, page.pageIndex)
     }
 
-    private fun renderPdfPage(context: Context, uri: Uri): Bitmap {
+    /** Largest bitmap we will allocate for one sheet, so a big drawing cannot exhaust memory. */
+    private val MAX_PLAN_BITMAP_PIXELS = 12_000_000
+
+    private fun renderPdfPage(context: Context, uri: Uri, pageIndex: Int = 0): Bitmap {
         val descriptor = if (uri.scheme == "file") {
             ParcelFileDescriptor.open(File(uri.path ?: error("مسار PDF غير صالح.")), ParcelFileDescriptor.MODE_READ_ONLY)
         } else {
@@ -585,13 +611,33 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
         return descriptor.use {
             PdfRenderer(it).use { renderer ->
                 require(renderer.pageCount > 0) { "لا يحتوي ملف PDF على صفحات." }
-                renderer.openPage(0).use { page ->
-                    Bitmap.createBitmap(page.width * 2, page.height * 2, Bitmap.Config.ARGB_8888).also { bitmap ->
+                val index = pageIndex.coerceIn(0, renderer.pageCount - 1)
+                renderer.openPage(index).use { page ->
+                    // Scale up for legibility, but never beyond what we can allocate.
+                    val requested = 2f
+                    val capped = minOf(requested, sqrt(MAX_PLAN_BITMAP_PIXELS.toFloat() / (page.width.toFloat() * page.height)))
+                    val width = (page.width * capped).toInt().coerceAtLeast(1)
+                    val height = (page.height * capped).toInt().coerceAtLeast(1)
+                    Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also { bitmap ->
+                        // PdfRenderer composites onto whatever is already there, and a fresh
+                        // bitmap is transparent. Without a white ground the sheet's black
+                        // linework lands on transparency and vanishes against a dark canvas.
+                        bitmap.eraseColor(android.graphics.Color.WHITE)
                         page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
                     }
                 }
             }
         }
+    }
+
+    /** Number of sheets in the selected document, used to drive page navigation. */
+    private fun readPdfPageCount(context: Context, uri: Uri): Int {
+        val descriptor = if (uri.scheme == "file") {
+            ParcelFileDescriptor.open(File(uri.path ?: error("مسار PDF غير صالح.")), ParcelFileDescriptor.MODE_READ_ONLY)
+        } else {
+            context.contentResolver.openFileDescriptor(uri, "r") ?: error("تعذر قراءة ملف PDF المحدد.")
+        }
+        return descriptor.use { PdfRenderer(it).use { renderer -> renderer.pageCount } }
     }
 
     fun onMotionEvent(event: MotionEvent, planPoint: PlanPoint, screenPoint: Offset) {

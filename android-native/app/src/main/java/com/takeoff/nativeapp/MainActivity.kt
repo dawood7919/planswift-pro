@@ -177,7 +177,7 @@ private fun TakeoffNativeScreen(
                     onOpenWorkspace = { showWorkspace = true; isInspectorOpen = true },
                     modifier = Modifier.fillMaxSize()
                 )
-            } else BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 12.dp)) {
+            } else BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
                 val inspector = @Composable {
                     TakeoffInspector(
                         state = state,
@@ -218,14 +218,41 @@ private fun TakeoffNativeScreen(
                         modifier = Modifier.fillMaxSize()
                     )
                 }
+                // Canvas-first: the plan fills the surface and every readout floats over it.
                 val drawing = @Composable {
-                    Surface(
-                        modifier = Modifier.fillMaxSize(),
-                        color = Color(0xFF0C2735),
-                        shape = RoundedCornerShape(18.dp),
-                        shadowElevation = 3.dp
-                    ) {
-                        TakeoffCanvas(state = state, onOpenPlan = onOpenPlan, onMotionEvent = onMotionEvent)
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        Surface(
+                            modifier = Modifier.fillMaxSize(),
+                            color = com.takeoff.nativeapp.ui.TakeoffCanvas,
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            TakeoffCanvas(state = state, onOpenPlan = onOpenPlan, onMotionEvent = onMotionEvent)
+                        }
+                        com.takeoff.nativeapp.ui.ScaleBadge(
+                            scaleFactor = state.calibration?.factor,
+                            scaleUnit = state.calibration?.unit,
+                            modifier = Modifier.align(Alignment.TopEnd).padding(10.dp)
+                        )
+                        com.takeoff.nativeapp.ui.SheetStrip(
+                            pages = state.project.pages,
+                            activePageId = state.activePageId,
+                            onSelectPage = onSelectPage,
+                            modifier = Modifier.align(Alignment.TopStart).padding(top = 52.dp, start = 10.dp, end = 10.dp)
+                        )
+                        com.takeoff.nativeapp.ui.MeasurementHud(
+                            tool = state.selectedTool,
+                            activePoints = state.activePoints,
+                            scaleFactor = state.calibration?.factor,
+                            scaleUnit = state.calibration?.unit,
+                            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 62.dp)
+                        )
+                        com.takeoff.nativeapp.ui.MeasurementChipBar(
+                            measurements = state.measurements,
+                            selectedIds = state.selectedMeasurementIds,
+                            scaleUnit = state.calibration?.unit,
+                            onSelect = onToggleMeasurementSelection,
+                            modifier = Modifier.align(Alignment.BottomStart).padding(10.dp)
+                        )
                     }
                 }
                 if (maxWidth >= 980.dp) {

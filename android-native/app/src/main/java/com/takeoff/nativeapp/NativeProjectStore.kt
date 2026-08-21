@@ -47,13 +47,14 @@ class NativeProjectStore(context: Context) {
             NativeProjectPage(
                 id = page.getLong("id"),
                 name = page.getString("name"),
-                sourceUri = page.optString("sourceUri").ifBlank { null }
+                sourceUri = page.optString("sourceUri").ifBlank { null },
+                pageIndex = page.optInt("pageIndex", 0)
             )
         }
         val project = NativeProject(root.getLong("projectId"), root.getString("projectName"), pages)
         val layers = root.optJSONArray("layers")?.toList { layer ->
             NativeLayer(layer.getLong("id"), layer.getString("name"), layer.getLong("color"), layer.optBoolean("visible", true))
-        } ?: listOf(NativeLayer(1L, "قياسات عامة", 0xFF59C3F5))
+        } ?: listOf(NativeLayer(1L, "قياسات عامة", TAKEOFF_LAYER_COLORS[0]))
         val selectedLayerId = root.optLong("selectedLayerId", layers.first().id)
         val templates = root.optJSONArray("templates")?.toList { template ->
             val costItems = template.optJSONArray("costItems")?.toList { item ->
@@ -86,7 +87,7 @@ class NativeProjectStore(context: Context) {
             .put("selectedTemplateId", workspace.selectedTemplateId ?: -1L)
             .put("annotations", JSONArray().apply { workspace.annotations.forEach { annotation -> put(JSONObject().put("id", annotation.id).put("text", annotation.text).put("x", annotation.point.x).put("y", annotation.point.y).put("color", annotation.color)) } })
             .put("pages", JSONArray().apply {
-                workspace.project.pages.forEach { page -> put(JSONObject().put("id", page.id).put("name", page.name).put("sourceUri", page.sourceUri ?: "")) }
+                workspace.project.pages.forEach { page -> put(JSONObject().put("id", page.id).put("name", page.name).put("sourceUri", page.sourceUri ?: "").put("pageIndex", page.pageIndex)) }
             })
             .put("measurements", JSONArray().apply {
                 workspace.measurements.forEach { measurement ->
