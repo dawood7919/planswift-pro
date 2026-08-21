@@ -43,27 +43,27 @@ fun TakeoffCommandBar(
     onToggleInspector: () -> Unit
 ) {
     val summary = workspaceSummary(activeTool, if (hasMeasurements) 1 else 0, null)
-    Surface(color = TakeoffInk, contentColor = Color.White, shadowElevation = 8.dp) {
+    Surface(color = TakeoffSurface, contentColor = TakeoffText, shadowElevation = 8.dp) {
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                 Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                    Surface(color = TakeoffSignal, shape = MaterialTheme.shapes.medium) {
-                        Text("T", modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp), style = MaterialTheme.typography.titleMedium, color = TakeoffInk)
+                    Surface(color = TakeoffAccent, shape = MaterialTheme.shapes.medium) {
+                        Text("T", modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp), style = MaterialTheme.typography.titleMedium, color = Color(0xFF1A1005))
                     }
                     Column {
-                        Text("TAKEOFF", style = MaterialTheme.typography.labelLarge, color = TakeoffSignal)
+                        Text("TAKEOFF", style = MaterialTheme.typography.labelLarge, color = TakeoffText)
                         Text(projectName, style = MaterialTheme.typography.titleSmall, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
-                    IconButton(onClick = onOpenPlan) { Icon(Icons.Default.UploadFile, contentDescription = "فتح مخطط PDF", tint = TakeoffSignal) }
+                    IconButton(onClick = onOpenPlan) { Icon(Icons.Default.UploadFile, contentDescription = "فتح مخطط PDF", tint = TakeoffAccent) }
                     IconButton(onClick = onToggleInspector) { Icon(Icons.Default.Settings, contentDescription = "فتح لوحة المشروع", tint = Color.White) }
                 }
             }
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 WorkspacePill("الأداة", summary.toolLabel)
-                WorkspacePill("القياسات", if (hasMeasurements) "جاهزة" else "جديدة", if (hasMeasurements) TakeoffSignal else Color(0xFFB8CFDB))
-                if (isLoading) WorkspacePill("الحالة", "يفتح المخطط…", TakeoffOrange)
+                WorkspacePill("القياسات", if (hasMeasurements) "جاهزة" else "جديدة", if (hasMeasurements) TakeoffSuccess else TakeoffTextFaint)
+                if (isLoading) WorkspacePill("الحالة", "يفتح المخطط…", TakeoffWarning)
             }
             Row(modifier = Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 NativeTool.entries.forEach { tool ->
@@ -72,17 +72,17 @@ fun TakeoffCommandBar(
                         onClick = { onToolSelected(tool) },
                         label = { Text(tool.label) },
                         colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = TakeoffSignal,
-                            selectedLabelColor = TakeoffInk,
-                            labelColor = Color(0xFFE1EEF4),
-                            containerColor = Color(0xFF173D4E)
+                            selectedContainerColor = TakeoffSurfaceHi,
+                            selectedLabelColor = TakeoffText,
+                            labelColor = TakeoffTextDim,
+                            containerColor = TakeoffSurfaceAlt
                         )
                     )
                 }
                 if (hasMeasurements) {
-                    AssistChip(onClick = onUndo, label = { Text("تراجع") }, leadingIcon = { Icon(Icons.AutoMirrored.Filled.Undo, null) }, colors = AssistChipDefaults.assistChipColors(containerColor = Color(0xFF234B60), labelColor = Color.White, leadingIconContentColor = Color.White))
-                    AssistChip(onClick = onExportReport, label = { Text("تصدير") }, colors = AssistChipDefaults.assistChipColors(containerColor = Color(0xFF234B60), labelColor = Color.White))
-                    AssistChip(onClick = onClear, label = { Text("مسح") }, leadingIcon = { Icon(Icons.Default.DeleteSweep, null) }, colors = AssistChipDefaults.assistChipColors(containerColor = Color(0xFF653842), labelColor = Color.White, leadingIconContentColor = Color.White))
+                    AssistChip(onClick = onUndo, label = { Text("تراجع") }, leadingIcon = { Icon(Icons.AutoMirrored.Filled.Undo, null) }, colors = AssistChipDefaults.assistChipColors(containerColor = TakeoffSurfaceAlt, labelColor = TakeoffTextDim, leadingIconContentColor = TakeoffTextDim))
+                    AssistChip(onClick = onExportReport, label = { Text("تصدير") }, colors = AssistChipDefaults.assistChipColors(containerColor = TakeoffSurfaceAlt, labelColor = TakeoffTextDim))
+                    AssistChip(onClick = onClear, label = { Text("مسح") }, leadingIcon = { Icon(Icons.Default.DeleteSweep, null) }, colors = AssistChipDefaults.assistChipColors(containerColor = TakeoffSurfaceAlt, labelColor = TakeoffDanger, leadingIconContentColor = TakeoffDanger))
                 }
             }
         }

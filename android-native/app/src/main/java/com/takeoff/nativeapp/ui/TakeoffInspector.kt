@@ -82,13 +82,13 @@ fun TakeoffInspector(
     var newCostWaste by rememberSaveable { mutableStateOf("0") }
     var deviceToken by rememberSaveable { mutableStateOf("") }
     var versionLabel by rememberSaveable { mutableStateOf("") }
-    Column(modifier = modifier.background(TakeoffPaper).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = TakeoffInk)) {
+    Column(modifier = modifier.background(TakeoffBackground).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = TakeoffSurface)) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text("لوحة المشروع", style = MaterialTheme.typography.titleLarge, color = TakeoffSignal)
+                Text("لوحة المشروع", style = MaterialTheme.typography.titleLarge, color = TakeoffText)
                 Text(state.project.name, style = MaterialTheme.typography.titleMedium, color = Color.White)
-                Text(if (state.project.pages.isEmpty()) "أنشئ مساحة العمل بإضافة مخطط PDF." else "${state.project.pages.size} صفحة · ${state.measurements.size} عنصر قياس", style = MaterialTheme.typography.bodySmall, color = Color(0xFFB8CFDB))
-                Text("الأداة النشطة: ${state.selectedTool.label}", style = MaterialTheme.typography.labelLarge, color = TakeoffSignal)
+                Text(if (state.project.pages.isEmpty()) "أنشئ مساحة العمل بإضافة مخطط PDF." else "${state.project.pages.size} صفحة · ${state.measurements.size} عنصر قياس", style = MaterialTheme.typography.bodySmall, color = TakeoffTextDim)
+                Text("الأداة النشطة: ${state.selectedTool.label}", style = MaterialTheme.typography.labelLarge, color = TakeoffArea)
             }
         }
         InspectorSectionHeader("الصفحات", "انتقل بين صفحات المخطط النشطة")

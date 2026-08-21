@@ -45,6 +45,12 @@ data class NativeProjectPage(val id: Long, val name: String, val sourceUri: Stri
 
 data class NativeProject(val id: Long, val name: String, val pages: List<NativeProjectPage>)
 
+/**
+ * Layer hues, matching the design tokens in ui/TakeoffUiPrimitives.kt.
+ * Orange is deliberately absent: it marks money, never a measurement.
+ */
+val TAKEOFF_LAYER_COLORS = longArrayOf(0xFF22D3EE, 0xFFF5A524, 0xFFA78BFA, 0xFF4ADE80, 0xFF7DD3FC)
+
 data class NativeLayer(val id: Long, val name: String, val color: Long, val visible: Boolean = true)
 
 data class NativeMeasurement(
@@ -60,7 +66,7 @@ data class NativeMeasurement(
 
 data class NativeCalibration(val factor: Double, val unit: String)
 
-data class NativeAnnotation(val id: Long, val text: String, val point: PlanPoint, val color: Long = 0xFFFFE082)
+data class NativeAnnotation(val id: Long, val text: String, val point: PlanPoint, val color: Long = 0xFFFBBF24)
 
 data class TakeoffUiState(
     val pdfBitmap: Bitmap? = null,
@@ -79,7 +85,7 @@ data class TakeoffUiState(
     val roofRun: String = "",
     val volumeDepth: String = "",
     val calibration: NativeCalibration? = null,
-    val layers: List<NativeLayer> = listOf(NativeLayer(1L, "قياسات عامة", 0xFF59C3F5)),
+    val layers: List<NativeLayer> = listOf(NativeLayer(1L, "قياسات عامة", TAKEOFF_LAYER_COLORS[0])),
     val selectedLayerId: Long = 1L,
     val templates: List<NativeTemplate> = emptyList(),
     val selectedTemplateId: Long? = null,
@@ -327,7 +333,7 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
                             project = imported.project,
                             measurements = imported.measurements,
                             calibration = imported.calibration,
-                            layers = listOf(NativeLayer(1L, "قياسات مستوردة", 0xFF59C3F5)),
+                            layers = listOf(NativeLayer(1L, "قياسات مستوردة", TAKEOFF_LAYER_COLORS[0])),
                             selectedLayerId = 1L,
                             selectedTemplateId = null,
                             selectedMeasurementIds = emptySet(),
@@ -479,8 +485,7 @@ class TakeoffViewModel(application: Application) : AndroidViewModel(application)
     fun addLayer(name: String) {
         val normalized = name.trim().take(80)
         if (normalized.isEmpty()) return
-        val colors = longArrayOf(0xFF59C3F5, 0xFF36E39D, 0xFFFFA26B, 0xFFA78BFA, 0xFFF6CF62)
-        val layer = NativeLayer(nextLayerId++, normalized, colors[(nextLayerId % colors.size).toInt()])
+        val layer = NativeLayer(nextLayerId++, normalized, TAKEOFF_LAYER_COLORS[(nextLayerId % TAKEOFF_LAYER_COLORS.size).toInt()])
         _state.update { it.copy(layers = it.layers + layer, selectedLayerId = layer.id, inputSource = "اختيرت طبقة $normalized") }
         persistWorkspace()
     }

@@ -157,7 +157,7 @@ private fun TakeoffNativeScreen(
 ) {
     var isInspectorOpen by rememberSaveable { mutableStateOf(false) }
     var showWorkspace by rememberSaveable { mutableStateOf(false) }
-    Surface(modifier = Modifier.fillMaxSize(), color = com.takeoff.nativeapp.ui.TakeoffPaper) {
+    Surface(modifier = Modifier.fillMaxSize(), color = com.takeoff.nativeapp.ui.TakeoffBackground) {
         Column(modifier = Modifier.fillMaxSize()) {
             TakeoffCommandBar(
                 projectName = state.project.name,
@@ -233,7 +233,7 @@ private fun TakeoffNativeScreen(
                         Box(modifier = Modifier.weight(1f).fillMaxSize()) { drawing() }
                         Surface(
                             modifier = Modifier.fillMaxSize().weight(0.38f),
-                            color = com.takeoff.nativeapp.ui.TakeoffPaper,
+                            color = com.takeoff.nativeapp.ui.TakeoffBackground,
                             shape = RoundedCornerShape(18.dp),
                             shadowElevation = 2.dp
                         ) { inspector() }
@@ -244,7 +244,7 @@ private fun TakeoffNativeScreen(
                         if (isInspectorOpen) {
                             Surface(
                                 modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().heightIn(max = 520.dp),
-                                color = com.takeoff.nativeapp.ui.TakeoffPaper,
+                                color = com.takeoff.nativeapp.ui.TakeoffBackground,
                                 shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp),
                                 shadowElevation = 12.dp
                             ) { inspector() }
@@ -269,10 +269,10 @@ private fun TakeoffStartScreen(
     onOpenWorkspace: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(modifier = modifier.background(com.takeoff.nativeapp.ui.TakeoffInk).padding(22.dp), contentAlignment = Alignment.Center) {
+    Box(modifier = modifier.background(com.takeoff.nativeapp.ui.TakeoffCanvas).padding(22.dp), contentAlignment = Alignment.Center) {
         Surface(
-            color = Color(0xFFF8FAF7),
-            shape = RoundedCornerShape(28.dp),
+            color = com.takeoff.nativeapp.ui.TakeoffSurface,
+            shape = RoundedCornerShape(22.dp),
             shadowElevation = 10.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -280,14 +280,14 @@ private fun TakeoffStartScreen(
                 modifier = Modifier.padding(26.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Surface(color = com.takeoff.nativeapp.ui.TakeoffSignal, shape = RoundedCornerShape(12.dp)) {
-                    Text("TAKEOFF  /  WORKSPACE", modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp), style = MaterialTheme.typography.labelLarge, color = com.takeoff.nativeapp.ui.TakeoffInk)
+                Surface(color = com.takeoff.nativeapp.ui.TakeoffAccent, shape = RoundedCornerShape(12.dp)) {
+                    Text("TAKEOFF  /  WORKSPACE", modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp), style = MaterialTheme.typography.labelLarge, color = Color(0xFF1A1005))
                 }
-                Text("كل مخطط.\nقرار أوضح.", style = MaterialTheme.typography.headlineSmall, color = com.takeoff.nativeapp.ui.TakeoffInk)
+                Text("كل مخطط.\nقرار أوضح.", style = MaterialTheme.typography.headlineSmall, color = com.takeoff.nativeapp.ui.TakeoffText)
                 Text("افتح مخطط PDF، عاير المقياس، ثم سجّل الكميات والتقدير في مساحة عمل مصممة للمراجعة.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Surface(color = Color(0xFFEAF0EC), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
+                Surface(color = com.takeoff.nativeapp.ui.TakeoffSurfaceAlt, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                        Text("تدفق العمل", style = MaterialTheme.typography.titleSmall, color = com.takeoff.nativeapp.ui.TakeoffInk)
+                        Text("تدفق العمل", style = MaterialTheme.typography.titleSmall, color = com.takeoff.nativeapp.ui.TakeoffText)
                         Text("01  افتح المخطط", style = MaterialTheme.typography.bodyMedium)
                         Text("02  عاير المسافة الحقيقية", style = MaterialTheme.typography.bodyMedium)
                         Text("03  قِس، قدّر، ثم راجع الإصدار", style = MaterialTheme.typography.bodyMedium)
